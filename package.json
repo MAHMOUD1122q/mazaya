@@ -44,6 +44,7 @@
     "sanitize-html": "^2.15.0",
     "sharp": "^0.33.5",
     "unzipper": "^0.12.3",
+    "vercel": "^41.7.4",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
