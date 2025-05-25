@@ -198,10 +198,10 @@ export const getOrders = async (req, res) => {
     let userBranch = req.user.branch;
     if (userBranch === "ميامي") {
       userBranch = "miami";
-    }else if (userBranch === "جانكليس") {
-          userBranch = "glanklis";
-    }else if (userBranch === "السيوف") {
-          userBranch = "seyouf";
+    } else if (userBranch === "جانكليس") {
+      userBranch = "glanklis";
+    } else if (userBranch === "السيوف") {
+      userBranch = "seyouf";
     }
 
     // Get today's date range
@@ -236,6 +236,9 @@ export const getOrders = async (req, res) => {
     }, 0);
 
     const pendingBalance = totalRevenueToday - totalProfitToday;
+
+    // Count refund orders
+    const refundOrdersCount = todayOrders.filter(order => order.status?.toLowerCase() === 'refund').length;
 
     // Group orders by status
     const ordersByStatus = todayOrders.reduce((acc, order) => {
@@ -283,10 +286,10 @@ export const getOrders = async (req, res) => {
       branch: userBranch,
       summary: {
         total_orders: totalOrdersToday,
-        total_revenue: totalRevenueToday,
+        // total_revenue: totalRevenueToday,
         total_profit: totalProfitToday,
-        pending_balance: pendingBalance,
-        average_order_value: totalOrdersToday > 0 ? Math.round(totalRevenueToday / totalOrdersToday) : 0
+        // pending_balance: pendingBalance,
+        refund_orders: refundOrdersCount,
       },
       orders: ordersWithPaymentStatus
     });
