@@ -8,17 +8,12 @@ const productSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  branch:[
-    {
-      branchName : String,
-      quantity : Number
-    }
-  ],
-  totalQuantity:Number ,
-  minQuantity: {
-    type: Number,
-    default: 10,
+   branches: {
+    miami: { type: Number, required: true },
+    glanklis: { type: Number, required: true },
+    seyouf: { type: Number, required: true },
   },
+  totalQuantity:Number ,
 });
 
 const Product = mongoose.model("Product", productSchema);

@@ -1,10 +1,8 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import rateLimit from "express-rate-limit";
-import { body, validationResult } from "express-validator";
-import sanitize from "mongo-sanitize"; // Prevent NoSQL injection
 import RefreshToken from "../models/token.js";
 import User from "../models/user.js";
+import Lab from "../models/lab.js";
 
 const ACCESS_SECRET = process.env.ACCESS_SECRET || "access_secret_key";
 const REFRESH_SECRET = process.env.REFRESH_SECRET || "refresh_secret_key";
@@ -15,13 +13,14 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
   return jwt.sign({ user }, REFRESH_SECRET, { expiresIn: "7d" });
 };
+
 export const login = async (req, res) => {
   try {
     const { name, code, branch, phone, password } = req.body;
 
     // Validate required fields
-    if (!phone || !name || !password || !code) {
-      return res.status(400).json({ message: "Phone, name, password, and code are required" });
+    if (!phone || !name || !password || !code || ! branch) {
+      return res.status(400).json({ message: "Phone, name, password , branch and code are required" });
     }
 
     // Find user by code
@@ -32,24 +31,18 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Verify all provided fields
+        // Verify all provided fields
     if (
       user.name !== name ||
       user.phone !== phone ||
-      (user.branch !== branch)
+      user.branch  !== branch 
     ) {
       // Simulate delay to prevent timing attacks
       await bcrypt.hash("dummy", 10);
       return res.status(401).json({ message: "Invalid credentials" });
     }
-
-    // Check if role includes "user"
-    if (!user.role.includes("user")) {
-      return res.status(403).json({ message: "Access denied: User role required" });
-    }
-
     // Check if password is hashed (starts with $2b$)
-    const isLikelyHashed = typeof user.password === "string" && user.password.startsWith("$2b$");
+    const isLikelyHashed = typeof user.password === "string" && user.password.startsWith("$2b$") ||  user.password.startsWith("$2a$")
     let isMatch = false;
 
     if (isLikelyHashed) {
@@ -73,7 +66,7 @@ export const login = async (req, res) => {
     }
 
     // Generate tokens
-    const payload = { id: user._id, name: user.name };
+    const payload = { id: user._id, name: user.name ,  branch };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -116,6 +109,7 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 export const loginLab = async (req, res) => {
   try {
     const { name, code, phone, password } = req.body;
@@ -126,7 +120,7 @@ export const loginLab = async (req, res) => {
     }
 
   // Find user by code
-    const user = await User.findOne({ code });
+    const user = await Lab.findOne({ code });
     if (!user) {
       // Simulate delay to prevent timing attacks
       await bcrypt.hash("dummy", 10);
@@ -142,13 +136,9 @@ export const loginLab = async (req, res) => {
       await bcrypt.hash("dummy", 10);
       return res.status(401).json({ message: "Invalid credentials" });
     }
-    // Check if role includes "lab"
-    if (!user.role.includes("lab")) {
-      return res.status(403).json({ message: "Access denied: Lab role required" });
-    }
 
     // Check if password is hashed (starts with $2b$)
-    const isLikelyHashed = typeof user.password === "string" && user.password.startsWith("$2b$");
+    const isLikelyHashed = typeof user.password === "string" && user.password.startsWith("$2b$") ||  user.password.startsWith("$2a$")
     let isMatch = false;
 
     if (isLikelyHashed) {

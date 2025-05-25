@@ -32,21 +32,23 @@ const orderSchema = new mongoose.Schema({
     min: 0, // Ensure the price is not negative
   },
   order_details: [{
-    item_code: { 
-      type: String, 
-    },
+    item_code : String ,
     glasses_type : String ,
-    glasses_brand: String ,
+
     quantity: { 
       type: Number, 
       default : 1,
     },
     Endurance : String ,
-    lenticular_left: String ,
-    lenticular_right : String,
+    lenticular_left_cost: Number ,
+    lenticular_right_cost : Number,
     lenticular_price : String,
+    lab : Number , 
     glassPrice: { 
       type: Number, 
+    },
+    glassDetails : {
+       type: Object, 
     }
   }],
   payment : [
@@ -56,6 +58,8 @@ const orderSchema = new mongoose.Schema({
       payment_method : String,
       bank : String,
       code : Number,
+      method : String,
+      discount : Number
     }
   ],
   status : {

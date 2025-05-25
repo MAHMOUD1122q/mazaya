@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 // User Schema with password hashing
-const userSchema = mongoose.Schema({
+const labSchema = mongoose.Schema({
   phone: {
     type: String,
     required: [true, "please add your phone"],
@@ -10,10 +10,6 @@ const userSchema = mongoose.Schema({
   name: {
     type: String,
     required: [true, "please enter your username"],
-  },
-  branch: {
-    type: String,
-    default: ""
   },
   password: {
     type: String,
@@ -33,7 +29,7 @@ const userSchema = mongoose.Schema({
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
+labSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }
@@ -41,10 +37,10 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare passwords
-userSchema.methods.comparePassword = async function(password) {
+labSchema.methods.comparePassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 };
 
-const User = mongoose.models.User || mongoose.model("User", userSchema);
+const Lab = mongoose.models.Lab || mongoose.model("Lab", labSchema);
 
-export default User;
+export default Lab;
