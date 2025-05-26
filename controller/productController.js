@@ -1,3 +1,4 @@
+import Order from "../models/orders.js";
 import Product from "../models/product.js";
 const generateProductCode = () => {
   const prefix = "PRD";

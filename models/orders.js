@@ -66,7 +66,9 @@ const orderSchema = new mongoose.Schema({
   status : {
     type : String,
     default : "lab"
-  }
+  },
+  reason : String,
+  labNotes : String
 });
 
 // Create the Order model from the schema

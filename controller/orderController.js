@@ -215,7 +215,8 @@ export const getOrders = async (req, res) => {
         $gte: startOfDay,
         $lt: endOfDay
       },
-      branch: new RegExp(userBranch, 'i')
+      branch: new RegExp(userBranch, 'i'),
+      status: { $nin: ['cancelled', 'refund'] }
     };
 
     // Get today's orders
@@ -303,5 +304,277 @@ export const getOrders = async (req, res) => {
     });
   }
 };
+export const getOrderByCode = async (req, res) => {
+  const { code } = req.params;
+
+  if (!code) {
+    return res.status(400).json("The code is required");
+  }
+
+  try {
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("No order found with this code");
+    }
+
+    // Fetch product details for each item_code in order_details
+    const detailedOrderItems = await Promise.all(
+      order.order_details.map(async (item) => {
+        const product = await Product.findOne({ code: item.item_code })
+          .select("-__v -branches -_id -totalQuantity");
+        return {
+          ...item.toObject(),
+          product: product || null
+        };
+      })
+    );
+
+    // Calculate total payments done
+    const totalPaid = order.payment.reduce((sum, p) => sum + (p.PaymentDone || 0), 0);
+    const pendingAmount = order.total_price - totalPaid;
+
+    // Determine payment status
+    const payment_status = pendingAmount > 0 ? "not completed" : "completed";
+
+    // Add pending amount to each payment record
+    const paymentWithPending = order.payment.map((p) => ({
+      ...p.toObject(),
+      pending: pendingAmount
+    }));
+
+    const fullOrder = {
+      ...order.toObject(),
+      order_details: detailedOrderItems,
+      payment: paymentWithPending,
+      payment_status // <- here
+    };
+
+    return res.status(200).json(fullOrder);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
 
 
+export const addPaymentToOrder = async (req, res) => {
+  const { code } = req.params;
+  const { payment } = req.body;
+
+  if (!payment || !payment.PaymentDone || payment.PaymentDone <= 0) {
+    return res.status(400).json("Payment amount must be greater than 0");
+  }
+
+  try {
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("Order not found");
+    }
+
+    // Add new payment correctly (flat structure, not nested)
+    order.payment.push(payment);
+
+    await order.save();
+
+    return res.status(200).json({
+      message: "Payment added successfully",
+      updated_payment: order.payment,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
+
+
+export const refundOrder = async (req, res) => {
+  const { code } = req.params;
+  const { reason } = req.body;
+
+  if (!reason || reason.trim() === "") {
+    return res.status(400).json("Refund reason is required");
+  }
+
+  try {
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("Order not found");
+    }
+
+    order.status = "refund";
+    order.reason = reason;
+
+    await order.save();
+
+    return res.status(200).json({
+      message: "Order marked as refunded",
+      updated_order: order
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
+
+export const cancelOrder = async (req, res) => {
+  const { code } = req.params;
+
+  try {
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("Order not found");
+    }
+
+    order.status = "cancelled"; // or "refunded" or any status you define
+    await order.save();
+
+    return res.status(200).json({
+      message: "Order marked as cancelled",
+      updated_order: order
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
+
+export const labOrders = async (req, res) => {
+  try {
+    // Restrict access if not lab
+    if (req.user.type === "user") {
+      return res.status(403).json("Cannot get lab orders. Your role is not authorized.");
+    }
+
+    // Get start and end of today
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    // Get lab orders
+    const labOrders = await Order.find({
+      date: { $gte: startOfDay, $lt: endOfDay },
+      status: "lab"
+    }).sort({ date: -1 }).select("-__v");
+
+    // Add payment_status to each order
+    const ordersWithPaymentStatus = labOrders.map(order => {
+      const totalPaid = order.payment?.reduce((sum, p) => sum + (p.PaymentDone || 0), 0) || 0;
+      const pendingAmount = order.total_price - totalPaid;
+      const payment_status = pendingAmount > 0 ? "not completed" : "completed";
+
+      return {
+        ...order.toObject(),
+        payment_status
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      total: ordersWithPaymentStatus.length,
+      orders: ordersWithPaymentStatus
+    });
+  } catch (error) {
+    console.error("Error fetching lab orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching lab orders",
+      error: error.message
+    });
+  }
+};
+
+export const orderReady = async (req, res) => {
+  const { code } = req.params;
+  const { labNotes } = req.body;
+
+  if (!code) {
+    return res.status(400).json("Order code is required");
+  }
+
+  try {
+    // Find order by order_code
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("Order not found");
+    }
+
+    // Prevent update if status is canceled or refund
+    if (order.status === "canceled" || order.status === "refund") {
+      return res.status(400).json(`Cannot mark order as ready because it is ${order.status}`);
+    }
+
+    if (order.status === "ready" ) {
+      return res.status(400).json(`Cannot mark order as ready because it is ready`);
+    }
+    // Update status to 'ready' and labNotes
+    order.status = "ready";
+    order.labNotes = labNotes || " ";
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Order ${code} marked as ready`,
+      order
+    });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating order status",
+      error: error.message
+    });
+  }
+};
+
+
+export const updateOrder = async (req, res) => {
+  const { code } = req.params;
+  const updateData = req.body;
+
+  if (!code) {
+    return res.status(400).json("Order code is required");
+  }
+
+  try {
+    const order = await Order.findOne({ order_code: code });
+
+    if (!order) {
+      return res.status(404).json("Order not found");
+    }
+
+    // Prevent updating immutable fields
+    delete updateData._id;
+    delete updateData.order_code;
+    delete updateData.__v;
+
+    // Update top-level fields and arrays like order_details and payment if provided
+    Object.keys(updateData).forEach(key => {
+      order[key] = updateData[key];
+    });
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Order ${code} updated successfully`,
+      order,
+    });
+  } catch (error) {
+    console.error("Error updating order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating order",
+      error: error.message,
+    });
+  }
+};

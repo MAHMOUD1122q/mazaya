@@ -66,7 +66,7 @@ export const login = async (req, res) => {
     }
 
     // Generate tokens
-    const payload = { id: user._id, name: user.name ,  branch };
+    const payload = { id: user._id, name: user.name , branch , type: "user"  };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -162,7 +162,7 @@ export const loginLab = async (req, res) => {
     }
 
     // Generate tokens
-    const payload = { id: user._id, name: user.name };
+    const payload = { id: user._id, name: user.name , type: "lab" };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
