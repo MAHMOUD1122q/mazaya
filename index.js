@@ -18,6 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', true); // ✅ Add this line early
 
 app.use(express.static(path.join(__dirname, "public"))); // Serve robots.txt from the public folder
 app.use(express.json());
