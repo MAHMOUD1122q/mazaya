@@ -13,6 +13,7 @@ const productSchema = mongoose.Schema({
     glanklis: { type: Number, required: true },
     seyouf: { type: Number, required: true },
   },
+  price : { type: Number, required: true },
   totalQuantity:Number ,
 });
 

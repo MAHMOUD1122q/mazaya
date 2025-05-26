@@ -9,7 +9,7 @@ const generateProductCode = () => {
 // GET product by code
 export const getByCode = async (req, res) => {
   try {
-    const product = await Product.findOne({ code: req.params.code });
+    const product = await Product.findOne({ code: req.params.code }).select("-__v -branches -_id -totalQuantity");
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -28,6 +28,7 @@ export const addProduct = async (req, res) => {
       quantityMiami,
       quantityGlanklis,
       quantitySeyouf,
+      price
     } = req.body;
 
     if (
@@ -57,6 +58,7 @@ export const addProduct = async (req, res) => {
         glanklis: quantityGlanklis,
         seyouf: quantitySeyouf,
       },
+      price
     });
 
     await newProduct.save();

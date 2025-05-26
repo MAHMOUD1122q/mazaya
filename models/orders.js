@@ -49,7 +49,8 @@ const orderSchema = new mongoose.Schema({
     },
     glassDetails : {
        type: Object, 
-    }
+    },
+    notes : String
   }],
   payment : [
     {
