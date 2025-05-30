@@ -51,12 +51,7 @@ export const addOrder = async (req, res) => {
     // Check product availability and collect inventory updates
     const inventoryUpdates = [];
     const productDetails = [];
-
-    console.log("Processing order details:", order_details); // Debug log
-
     for (const detail of order_details) {
-      console.log("Processing detail:", detail); // Debug log
-
       if (detail.item_code && (detail.quantity > 0 || !detail.quantity)) {
         // Set default quantity if not provided
         const quantity = detail.quantity || 1;
@@ -64,8 +59,6 @@ export const addOrder = async (req, res) => {
         const product = await Product.findOne({
           code: detail.item_code,
         }).session(session);
-
-        console.log("Found product:", product); // Debug log
 
         if (!product) {
           await session.abortTransaction();
@@ -78,11 +71,6 @@ export const addOrder = async (req, res) => {
         // Check if enough quantity is available in the specified branch
         const branchKey = branch.toLowerCase();
         const availableQuantity = product.branches[branchKey];
-
-        console.log(
-          `Branch: ${branchKey}, Available: ${availableQuantity}, Requested: ${quantity}`
-        ); // Debug log
-
         if (availableQuantity < quantity) {
           await session.abortTransaction();
           return res.status(400).json({
@@ -113,18 +101,10 @@ export const addOrder = async (req, res) => {
         console.log("Skipping detail - missing item_code:", detail); // Debug log
       }
     }
-
-    console.log("Inventory updates to perform:", inventoryUpdates); // Debug log
-
     // Update inventory for all products
     for (const update of inventoryUpdates) {
       const newBranchQty = update.currentBranchQty - update.quantityToReduce;
       const newTotalQty = update.currentTotalQty - update.quantityToReduce;
-
-      console.log(
-        `Updating product ${update.productId}: ${update.branchKey} from ${update.currentBranchQty} to ${newBranchQty}`
-      ); // Debug log
-
       const updateResult = await Product.findByIdAndUpdate(
         update.productId,
         {
@@ -138,9 +118,6 @@ export const addOrder = async (req, res) => {
           new: true, // Return the updated document
         }
       );
-
-      console.log("Update result:", updateResult); // Debug log
-
       if (!updateResult) {
         await session.abortTransaction();
         return res.status(500).json({
@@ -164,16 +141,10 @@ export const addOrder = async (req, res) => {
       status: status || "lab",
     });
 
-    console.log("Creating order:", newOrder); // Debug log
-
     const savedOrder = await newOrder.save({ session });
-
-    console.log("Order saved successfully"); // Debug log
 
     // Commit the transaction
     await session.commitTransaction();
-    console.log("Transaction committed"); // Debug log
-
     res.status(201).json({
       success: true,
       message: "Order created successfully and inventory updated",
@@ -239,7 +210,7 @@ export const getOrders = async (req, res) => {
     };
 
     // Get today's orders
-    const todayOrders = await Order.find(query).sort({ date: -1 });
+    const todayOrders = await Order.find(query).sort({ date: -1 }).select("-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id");
 
     // Calculate metrics
     const totalOrdersToday = todayOrders.length;
@@ -335,7 +306,7 @@ export const getOrderByCode = async (req, res) => {
   }
 
   try {
-    const order = await Order.findOne({ order_code: code });
+    const order = await Order.findOne({ order_code: code }).select("-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id -order_details.lenticular_left_cost -order_details.lenticular_right_cost");
 
     if (!order) {
       return res.status(404).json("No order found with this code");
@@ -811,7 +782,7 @@ export const getExpencess = async (req, res) => {
     }
 
     // Fetch filtered expenses
-    const expenses = await Expenses.find(dateFilter);
+    const expenses = await Expenses.find(dateFilter).select("-__v -_id -createdAt");
 
     // Aggregate by type with filtered data
     const typeDistribution = await Expenses.aggregate([
@@ -831,17 +802,28 @@ export const getExpencess = async (req, res) => {
       },
     ]);
 
+    // Calculate total sum
+    const total = typeDistribution.reduce((sum, item) => sum + item.totalAmount, 0);
+
+    // Add percentage to each type
+    const typeDistributionWithPercentage = typeDistribution.map((item) => ({
+      ...item,
+      percentage: total > 0 ? ((item.totalAmount / total) * 100).toFixed(2) : "0.00",
+    }));
+
     res.status(200).json({
-      typeDistribution,
+      typeDistribution: typeDistributionWithPercentage,
+      totalAmount: total,
       expenses,
     });
   } catch (error) {
     console.error("Error in summary endpoint:", error);
     res.status(500).json({ error: "Server error" });
   }
-}
+};
 
-export const reportPayment =   async (req, res) => {
+
+export const reportPayment = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -877,6 +859,14 @@ export const reportPayment =   async (req, res) => {
         }
       }
     ]);
+
+    // Calculate total revenue for percentages
+    const totalRevenue = paymentDistribution.reduce((sum, item) => sum + item.totalPaid, 0);
+
+    const paymentDistributionWithPercentages = paymentDistribution.map(item => ({
+      ...item,
+      percentage: totalRevenue > 0 ? ((item.totalPaid / totalRevenue) * 100).toFixed(2) : "0.00"
+    }));
 
     // 2. Revenue by day of week
     const weeklyRevenue = await Order.aggregate([
@@ -915,11 +905,12 @@ export const reportPayment =   async (req, res) => {
     ]);
 
     res.status(200).json({
-      paymentDistribution,
+      totalRevenue,
+      paymentDistribution: paymentDistributionWithPercentages,
       weeklyRevenue
     });
   } catch (error) {
     console.error("Error generating payment summary:", error);
     res.status(500).json({ error: "Server error" });
   }
-}
+};
