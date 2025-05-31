@@ -207,7 +207,7 @@ export const getOrders = async (req, res) => {
     };
 
     // Get today's orders
-    const todayOrders = await Order.find(query).sort({ date: -1 }).select("-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id");
+    const todayOrders = await Order.find(query).sort({ date: -1 }).select("-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id -order_details");
 
     // Calculate metrics
     const totalOrdersToday = todayOrders.length;
