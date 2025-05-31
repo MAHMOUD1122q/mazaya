@@ -147,10 +147,7 @@ export const addOrder = async (req, res) => {
     await session.commitTransaction();
     res.status(201).json({
       success: true,
-      message: "Order created successfully and inventory updated",
-      data: {
-        order: savedOrder,
-      },
+      message: "Order created successfully and inventory updated"
     });
   } catch (error) {
     // Rollback the transaction in case of error
