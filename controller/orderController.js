@@ -208,7 +208,7 @@ export const getOrders = async (req, res) => {
 
 const todayOrders = await Order.find(query)
     .sort({ date: -1 })
-    .select("-__v -payment._id -branch -seller_name -status -_id -order_details");
+    .select("-__v -payment._id -branch -seller_name -status -_id -order_details -customer_phone");
     // Calculate metrics
     const totalOrdersToday = todayOrders.length;
 
