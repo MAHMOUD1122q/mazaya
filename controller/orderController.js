@@ -4,6 +4,11 @@ import Product from "../models/product.js";
 import Notification from "../models/notifications.js";
 import Expenses from "../models/expenses.js";
 
+function generateOrderCode() {
+  const randomNumber = Math.floor(100000000000 + Math.random() * 900000000000); // 12-digit number
+  return `INV-${randomNumber}`;
+}
+
 export const addOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -14,14 +19,13 @@ export const addOrder = async (req, res) => {
       customer_phone,
       seller_name,
       branch,
-      order_code,
       type,
       total_price,
       order_details,
       payment,
       status,
     } = req.body;
-
+const order_code = generateOrderCode();
     console.log("Received order data:", req.body); // Debug log
 
     // Validate required fields
