@@ -467,7 +467,7 @@ export const labOrders = async (req, res) => {
       status: "lab",
     })
       .sort({ date: -1 })
-      .select("-__v -order_details");
+      .select("-__v -branch -seller_name -status -_id -order_details -customer_phone -payment");
 
     // Add payment_status to each order
     const ordersWithPaymentStatus = labOrders.map((order) => {
