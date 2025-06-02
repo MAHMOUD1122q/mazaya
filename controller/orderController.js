@@ -137,7 +137,7 @@ const order_code = generateOrderCode();
       order_code,
       seller_name,
       branch,
-      type || "lab",
+      type : type || "lab",
       total_price,
       order_details,
       payment,
