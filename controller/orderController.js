@@ -17,7 +17,6 @@ export const addOrder = async (req, res) => {
     const {
       customer_name,
       customer_phone,
-      type,
       total_price,
       order_details,
       payment,
@@ -137,7 +136,6 @@ const order_code = generateOrderCode();
       order_code,
       seller_name,
       branch,
-      type : type || "lab",
       total_price,
       order_details,
       payment,
