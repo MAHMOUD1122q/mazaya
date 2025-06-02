@@ -17,8 +17,6 @@ export const addOrder = async (req, res) => {
     const {
       customer_name,
       customer_phone,
-      seller_name,
-      branch,
       type,
       total_price,
       order_details,
@@ -27,7 +25,8 @@ export const addOrder = async (req, res) => {
     } = req.body;
 const order_code = generateOrderCode();
     console.log("Received order data:", req.body); // Debug log
-
+    const branch = req.user.branch
+    const seller_name = req.user.name
     // Validate required fields
     if (
       !branch ||
