@@ -4,7 +4,7 @@ import { authenticate } from "../middlewares/auth.js"
 
 const router = express.Router()
 
-router.post("/add-order" , addOrder)
+router.post("/add-order",authenticate , addOrder)
 router.get("/get-orders" ,authenticate , getOrders)
 router.get("/get-order/:code" ,authenticate , getOrderByCode)
 router.post("/complete-amount/:code" ,authenticate , addPaymentToOrder)
