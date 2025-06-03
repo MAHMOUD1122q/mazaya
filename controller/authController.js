@@ -205,7 +205,56 @@ export const loginLab = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+export const refreshToken = async (req, res) => {
+  try {
+    const token = req.cookies.refreshToken;
 
+    if (!token) {
+      return res.status(401).json({ message: "Refresh token not found" });
+    }
+
+    // Verify refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_SECRET);
+    } catch (err) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
+    const existingToken = await RefreshToken.findOne({ token });
+    if (!existingToken) {
+      return res.status(403).json({ message: "Refresh token not recognized" });
+    }
+
+    // Identify user (based on type)
+    const { id, name, type } = decoded.user;
+    let user;
+
+    if (type === "user") {
+      user = await User.findById(id);
+    } else if (type === "lab") {
+      user = await Lab.findById(id); // Make sure you import Lab model too
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const newAccessToken = generateAccessToken({
+      id: user._id,
+      name: user.name,
+      branch: user.branch,
+      type,
+    });
+
+    res.json({
+      accessToken: newAccessToken,
+    });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 // LOGOUT CONTROLLER
 export const logout = async (req, res) => {
   try {
