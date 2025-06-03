@@ -21,6 +21,7 @@ export const addOrder = async (req, res) => {
       order_details,
       payment,
       status,
+      notes
     } = req.body;
 const order_code = generateOrderCode();
     console.log("Received order data:", req.body); // Debug log
@@ -139,6 +140,7 @@ const order_code = generateOrderCode();
       total_price,
       order_details,
       payment,
+      notes,
       status: status || "lab",
     });
 
