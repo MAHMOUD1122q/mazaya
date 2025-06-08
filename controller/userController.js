@@ -69,7 +69,7 @@ export const addUser = async (req, res) => {
   }
 
   if (!egyptPhoneRegex.test(phone)) {
-    return res.status(400).json({ message: "Invalid Egyptian phone number" });
+    return res.status(400).json({ message: "Invalid phone number" });
   }
 
   try {
