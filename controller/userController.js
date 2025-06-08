@@ -58,11 +58,18 @@ export const getAllAccounts = async (req, res) => {
 };
 
 export const addUser = async (req, res) => {
-  const { name, phone, password, role , branch ,code } = req.body;
+  const { name, phone, password, role, branch, code } = req.body;
+
+  // Egyptian mobile phone number validation (starts with 010, 011, 012, or 015 and is 11 digits)
+  const egyptPhoneRegex = /^01[0125][0-9]{8}$/;
 
   // Validate input
   if (!name || !phone || !password || !role) {
     return res.status(400).json({ message: "All fields are required" });
+  }
+
+  if (!egyptPhoneRegex.test(phone)) {
+    return res.status(400).json({ message: "Invalid Egyptian phone number" });
   }
 
   try {
@@ -70,27 +77,29 @@ export const addUser = async (req, res) => {
 
     if (role === "user") {
       // Store in User collection
-      if(!branch) {
-        return res.status(400).json({message : "branch is required"})
+      if (!branch) {
+        return res.status(400).json({ message: "Branch is required for users" });
       }
-      newUser = new User({ name, phone, password , branch ,code });
+
+      newUser = new User({ name, phone, password, branch, code });
       await newUser.save();
+
     } else if (role === "lab") {
       // Store in Lab collection
-      newUser = new Lab({ name, phone, password , code });
+      newUser = new Lab({ name, phone, password, code });
       await newUser.save();
+
     } else {
       return res.status(400).json({ message: "Invalid role value" });
     }
 
-    res.status(201).json({ message: "User created successfully"});
+    res.status(201).json({ message: "User created successfully" });
 
   } catch (error) {
     console.error("Error adding user:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const deleteUser = async (req, res) => {
   const { id } = req.params;
