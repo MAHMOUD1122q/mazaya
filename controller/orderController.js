@@ -150,6 +150,7 @@ const order_code = generateOrderCode();
     await session.commitTransaction();
     res.status(201).json({
       success: true,
+      order_code : order_code ,
       message: "Order created successfully and inventory updated"
     });
   } catch (error) {
@@ -160,7 +161,6 @@ const order_code = generateOrderCode();
     if (error.code === 11000) {
       res.status(400).json({
         success: false,
-       order_code : order_code ,
         message: "Order code already exists. Please try again.",
       });
     } else {
