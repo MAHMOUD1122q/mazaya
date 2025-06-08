@@ -160,6 +160,7 @@ const order_code = generateOrderCode();
     if (error.code === 11000) {
       res.status(400).json({
         success: false,
+       order_code : order_code ,
         message: "Order code already exists. Please try again.",
       });
     } else {
