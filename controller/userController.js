@@ -8,9 +8,9 @@ export const getProfile = async (req, res) => {
 
     let user;
     if (type === "user") {
-      user = await User.findById(id).select("-password -createdAt -lastLogin -code -_id");
+      user = await User.findById(id);
     } else if (type === "lab") {
-      user = await Lab.findById(id).select("-password -createdAt -lastLogin -code -_id");
+      user = await Lab.findById(id);
     } else {
       return res.status(400).json({ message: "Invalid user type" });
     }
@@ -34,7 +34,7 @@ export const getAllAccounts = async (req, res) => {
   try {
     // Fetch all users and labs
     const users = await User.find();
-    const labs = await Lab.find().select("");
+    const labs = await Lab.find();
 
     // Append type to each document
     const formattedUsers = users.map(user => ({
