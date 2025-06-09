@@ -33,8 +33,8 @@ export const getProfile = async (req, res) => {
 export const getAllAccounts = async (req, res) => {
   try {
     // Fetch all users and labs
-    const users = await User.find().select("-password -lastLogin -createdAt -_id -code -branch");
-    const labs = await Lab.find().select("-password -lastLogin -createdAt -_id -code");
+    const users = await User.find();
+    const labs = await Lab.find().select("");
 
     // Append type to each document
     const formattedUsers = users.map(user => ({
