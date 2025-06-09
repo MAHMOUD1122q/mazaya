@@ -33,8 +33,8 @@ export const getProfile = async (req, res) => {
 export const getAllAccounts = async (req, res) => {
   try {
     // Fetch all users and labs
-    const users = await User.find();
-    const labs = await Lab.find();
+    const users = await User.find().select("-password");
+    const labs = await Lab.find().select("-password");
 
     // Append type to each document
     const formattedUsers = users.map(user => ({
