@@ -8,9 +8,9 @@ export const getProfile = async (req, res) => {
 
     let user;
     if (type === "user") {
-      user = await User.findById(id);
+      user = await User.findById(id).select("-password");
     } else if (type === "lab") {
-      user = await Lab.findById(id);
+      user = await Lab.findById(id).select("-password");
     } else {
       return res.status(400).json({ message: "Invalid user type" });
     }
