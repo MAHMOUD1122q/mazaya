@@ -3,6 +3,7 @@ import Order from "../models/orders.js";
 import Product from "../models/product.js";
 import Notification from "../models/notifications.js";
 import Expenses from "../models/expenses.js";
+import Client from "../models/clients.js";
 
 function generateOrderCode() {
   const randomNumber = Math.floor(100000000000 + Math.random() * 900000000000); // 12-digit number
@@ -14,19 +15,28 @@ export const addOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const {
+    let {
       customer_name,
       customer_phone,
       total_price,
       order_details,
       payment,
       status,
-      notes
+      notes,
     } = req.body;
-const order_code = generateOrderCode();
-    console.log("Received order data:", req.body); // Debug log
-    const branch = req.user.branch
-    const seller_name = req.user.name
+
+    const client = await Client.findOne({ phone: customer_phone });
+    if (client) {
+      customer_name = client.name;
+      customer_phone = client.phone;
+    } else {
+      await Client.create({ name: customer_name, phone: customer_phone });
+    }
+
+
+    const order_code = generateOrderCode();
+    const branch = req.user.branch;
+    const seller_name = req.user.name;
     // Validate required fields
     if (
       !branch ||
@@ -150,8 +160,8 @@ const order_code = generateOrderCode();
     await session.commitTransaction();
     res.status(201).json({
       success: true,
-      order_code : order_code ,
-      message: "Order created successfully and inventory updated"
+      order_code: order_code,
+      message: "Order created successfully and inventory updated",
     });
   } catch (error) {
     // Rollback the transaction in case of error
@@ -210,9 +220,11 @@ export const getOrders = async (req, res) => {
       status: { $nin: ["cancelled", "refund"] },
     };
 
-const todayOrders = await Order.find(query)
-    .sort({ date: -1 })
-    .select("-__v -branch -seller_name -status -_id -order_details -customer_phone -payment");
+    const todayOrders = await Order.find(query)
+      .sort({ date: -1 })
+      .select(
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
+      );
     // Calculate metrics
     const totalOrdersToday = todayOrders.length;
 
@@ -307,7 +319,9 @@ export const getOrderByCode = async (req, res) => {
   }
 
   try {
-    const order = await Order.findOne({ order_code: code }).select("-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id -order_details.lenticular_left_cost -order_details.lenticular_right_cost");
+    const order = await Order.findOne({ order_code: code }).select(
+      "-__v -payment._id -order_details._id -order_details.quantity -order_details.notes -branch -seller_name -status -_id -order_details.lenticular_left_cost -order_details.lenticular_right_cost"
+    );
 
     if (!order) {
       return res.status(404).json("No order found with this code");
@@ -467,7 +481,9 @@ export const labOrders = async (req, res) => {
       status: "lab",
     })
       .sort({ date: -1 })
-      .select("-__v -branch -seller_name -status -_id -order_details -customer_phone -payment");
+      .select(
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
+      );
 
     // Add payment_status to each order
     const ordersWithPaymentStatus = labOrders.map((order) => {
@@ -587,68 +603,78 @@ export const updateOrder = async (req, res) => {
     });
   }
 };
-
 export const getCliant = async (req, res) => {
   try {
-    const { search } = req.query; // Get the search parameter
+    const { search } = req.query;
 
-    // Validate that a search parameter is provided
     if (!search) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Please provide a search term (customer_name or customer_phone)",
-        });
+      return res.status(400).json({
+        message: "Please provide a search term (name, phone, or code).",
+      });
     }
 
-    // Build the search query: search by customer_name or customer_phone, exclude cancelled/refunded
-    const searchQuery = {
+    const isNumber = !isNaN(search);
+
+    // Build the client search query
+    const clientQuery = {
       $or: [
-        { customer_name: new RegExp(search, "i") }, // Case-insensitive search for customer_name
-        { customer_phone: search }, // Exact match for customer_phone
+        { phone: { $regex: search, $options: "i" } },
       ],
-      status: { $nin: ["cancelled", "refund"] }, // Exclude orders with status 'cancelled' or 'refund'
     };
 
-    // Find the most recent order for the client
-    const lastOrder = await Order.findOne(searchQuery)
-      .sort({ date: -1 }) // Sort by date (most recent first)
-      .lean(); // Convert to plain JavaScript object for performance
-
-    if (!lastOrder) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "No orders found for this client with status not cancelled or refund.",
-        });
+    if (isNumber) {
+      clientQuery.$or.push({ code: Number(search) });
     }
 
-    // Find all orders for the client to calculate total pending amount
-    const allOrders = await Order.find(searchQuery).lean(); // Convert to plain JavaScript objects for performance
+    const client = await Client.findOne(clientQuery).lean();
 
+    if (!client) {
+      return res.status(404).json({
+        message: "No client found with the provided search term.",
+      });
+    }
+
+    // Order search filter for this client
+    const orderFilter = {
+      customer_phone: client.phone,
+      status: { $nin: ["cancelled", "refund"] },
+    };
+
+    // Fetch all valid orders
+    const allOrders = await Order.find(orderFilter).lean();
+
+    if (allOrders.length === 0) {
+      return res.status(404).json({
+        message: "No valid orders found for this client.",
+      });
+    }
+
+    // Get the latest order
+    const lastOrder = allOrders.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    // Calculate total pending amount
     const totalPendingAmount = allOrders.reduce((sum, order) => {
-      const paymentDone = order.payment.reduce(
-        (acc, curr) => acc + (curr?.PaymentDone || 0),
+      const paid = order.payment.reduce(
+        (acc, p) => acc + (p?.PaymentDone || 0),
         0
       );
-      return sum + (order.total_price - paymentDone);
+      return sum + (order.total_price - paid);
     }, 0);
 
-    // Calculate if the last order is fully paid
-    const lastOrderPaymentDone = lastOrder.payment.reduce(
-      (acc, curr) => acc + (curr?.PaymentDone || 0),
+    const lastOrderPaid = lastOrder.payment.reduce(
+      (acc, p) => acc + (p?.PaymentDone || 0),
       0
     );
-    const isLastOrderPaid = lastOrder.total_price <= lastOrderPaymentDone;
 
-    // Prepare response with the last order's details
+    const isFullyPaid = lastOrderPaid >= lastOrder.total_price;
+
+    // Final response
     const response = {
+      customer_name: client.name,
+      customer_phone: client.phone,
+      customer_code: client.code,
       total_pending_amount: totalPendingAmount,
-      customer_name: lastOrder.customer_name,
-      customer_phone: lastOrder.customer_phone,
-      is_paid: true ? "paid": "not paid", // New field indicating if last order is paid
+      is_paid: isFullyPaid ? "paid" : "not paid",
       last_order: {
         order_code: lastOrder.order_code,
         seller_name: lastOrder.seller_name,
@@ -663,12 +689,13 @@ export const getCliant = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error("Error fetching client order:", error);
+    console.error("Error fetching client/order:", error);
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const getReports = async (req, res) => {
   try {
@@ -676,7 +703,7 @@ export const getReports = async (req, res) => {
 
     // Build the query object
     const query = {
-      status: { $nin: ['refund', 'cancelled'] }, // Exclude orders with status 'refund' or 'cancelled'
+      status: { $nin: ["refund", "cancelled"] }, // Exclude orders with status 'refund' or 'cancelled'
     };
 
     // Filter by branch if provided
@@ -689,7 +716,9 @@ export const getReports = async (req, res) => {
       const startDate = new Date(date);
       // Validate date format
       if (isNaN(startDate.getTime())) {
-        return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD.' });
+        return res
+          .status(400)
+          .json({ message: "Invalid date format. Use YYYY-MM-DD." });
       }
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 1); // End of the day
@@ -702,12 +731,14 @@ export const getReports = async (req, res) => {
     // Fetch all orders matching the query
     const orders = await Order.find(query)
       .select(
-        'customer_name customer_phone order_code seller_name branch type date total_price order_details payment status reason labNotes'
+        "customer_name customer_phone order_code seller_name branch type date total_price order_details payment status reason labNotes"
       )
       .lean(); // Convert to plain JavaScript objects for performance
 
     if (!orders || orders.length === 0) {
-      return res.status(404).json({ message: 'No orders found for the specified criteria.' });
+      return res
+        .status(404)
+        .json({ message: "No orders found for the specified criteria." });
     }
 
     // Calculate total pending amount for each order
@@ -717,11 +748,11 @@ export const getReports = async (req, res) => {
         0
       );
       const pendingAmount = order.total_price - paymentDone;
-      const o = order.total_price <= paymentDone
+      const o = order.total_price <= paymentDone;
       return {
         ...order,
         pending_amount: pendingAmount >= 0 ? pendingAmount : 0, // Ensure no negative pending amounts
-        is_paid: o === true ? "paid": "not paid" , // Indicate if the order is fully paid
+        is_paid: o === true ? "paid" : "not paid", // Indicate if the order is fully paid
       };
     });
 
@@ -739,10 +770,12 @@ export const getReports = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error('Error fetching reports:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error fetching reports:", error);
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
-}
+};
 
 export const addExpenses = async (req, res) => {
   try {
@@ -755,7 +788,7 @@ export const addExpenses = async (req, res) => {
       type,
       price,
       user: req.user._id, // Use _id from authenticated user, not name
-      branch :req.user.branch,
+      branch: req.user.branch,
       notes,
     });
 
@@ -764,7 +797,7 @@ export const addExpenses = async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
-}
+};
 
 export const getExpencess = async (req, res) => {
   try {
@@ -783,7 +816,9 @@ export const getExpencess = async (req, res) => {
     }
 
     // Fetch filtered expenses
-    const expenses = await Expenses.find(dateFilter).select("-__v -_id -createdAt");
+    const expenses = await Expenses.find(dateFilter).select(
+      "-__v -_id -createdAt"
+    );
 
     // Aggregate by type with filtered data
     const typeDistribution = await Expenses.aggregate([
@@ -804,12 +839,16 @@ export const getExpencess = async (req, res) => {
     ]);
 
     // Calculate total sum
-    const total = typeDistribution.reduce((sum, item) => sum + item.totalAmount, 0);
+    const total = typeDistribution.reduce(
+      (sum, item) => sum + item.totalAmount,
+      0
+    );
 
     // Add percentage to each type
     const typeDistributionWithPercentage = typeDistribution.map((item) => ({
       ...item,
-      percentage: total > 0 ? ((item.totalAmount / total) * 100).toFixed(2) : "0.00",
+      percentage:
+        total > 0 ? ((item.totalAmount / total) * 100).toFixed(2) : "0.00",
     }));
 
     res.status(200).json({
@@ -823,13 +862,12 @@ export const getExpencess = async (req, res) => {
   }
 };
 
-
 export const reportPayment = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
     const matchConditions = {
-      status: { $nin: ["canceled", "refund"] }
+      status: { $nin: ["canceled", "refund"] },
     };
 
     if (startDate || endDate) {
@@ -849,25 +887,33 @@ export const reportPayment = async (req, res) => {
       {
         $group: {
           _id: "$payment.payment_method",
-          totalPaid: { $sum: "$payment.PaymentDone" }
-        }
+          totalPaid: { $sum: "$payment.PaymentDone" },
+        },
       },
       {
         $project: {
           payment_method: "$_id",
           totalPaid: 1,
-          _id: 0
-        }
-      }
+          _id: 0,
+        },
+      },
     ]);
 
     // Calculate total revenue for percentages
-    const totalRevenue = paymentDistribution.reduce((sum, item) => sum + item.totalPaid, 0);
+    const totalRevenue = paymentDistribution.reduce(
+      (sum, item) => sum + item.totalPaid,
+      0
+    );
 
-    const paymentDistributionWithPercentages = paymentDistribution.map(item => ({
-      ...item,
-      percentage: totalRevenue > 0 ? ((item.totalPaid / totalRevenue) * 100).toFixed(2) : "0.00"
-    }));
+    const paymentDistributionWithPercentages = paymentDistribution.map(
+      (item) => ({
+        ...item,
+        percentage:
+          totalRevenue > 0
+            ? ((item.totalPaid / totalRevenue) * 100).toFixed(2)
+            : "0.00",
+      })
+    );
 
     // 2. Revenue by day of week
     const weeklyRevenue = await Order.aggregate([
@@ -876,42 +922,113 @@ export const reportPayment = async (req, res) => {
       {
         $group: {
           _id: { $dayOfWeek: "$date" },
-          totalPaid: { $sum: "$payment.PaymentDone" }
-        }
+          totalPaid: { $sum: "$payment.PaymentDone" },
+        },
       },
       {
         $project: {
           dayOfWeekNumber: "$_id",
           totalPaid: 1,
-          _id: 0
-        }
+          _id: 0,
+        },
       },
       {
         $addFields: {
           dayName: {
             $arrayElemAt: [
-              ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-              "$dayOfWeekNumber"
-            ]
-          }
-        }
+              [
+                "",
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ],
+              "$dayOfWeekNumber",
+            ],
+          },
+        },
       },
       {
         $project: {
           dayName: 1,
-          totalPaid: 1
-        }
+          totalPaid: 1,
+        },
       },
-      { $sort: { dayOfWeekNumber: 1 } }
+      { $sort: { dayOfWeekNumber: 1 } },
     ]);
 
     res.status(200).json({
       totalRevenue,
       paymentDistribution: paymentDistributionWithPercentages,
-      weeklyRevenue
+      weeklyRevenue,
     });
   } catch (error) {
     console.error("Error generating payment summary:", error);
     res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const getClients = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search) {
+      return res.status(400).json({ error: "Search query is required." });
+    }
+
+    const isNumber = !isNaN(search);
+
+    const filter = {
+      $or: [
+        { name: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    // If search is a number, add code to the OR filter
+    if (isNumber) {
+      filter.$or.push({ code: Number(search) });
+    }
+
+    const clients = await Client.find(filter);
+
+    if (clients.length === 0) {
+      return res.status(404).json({ message: "No matching clients found." });
+    }
+
+    res.status(200).json(clients);
+  } catch (error) {
+    console.error("Error during client search:", error);
+    res.status(500).json({ error: "Server error during client search." });
+  }
+};
+
+export const getRefundOrdersToday = async (req, res) => {
+  try {
+    // Define the start and end of today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Filter for orders with status 'refund' created today
+    const filter = {
+      status: "refund",
+      date: { $gte: startOfDay, $lte: endOfDay },
+    };
+
+    const refundedOrders = await Order.find(filter).sort({ date: -1 }).lean().select("-__v");
+
+    res.status(200).json({
+      message: "refunded orders",
+      orders: refundedOrders,
+    });
+  } catch (error) {
+    console.error("Error fetching today's refunded orders:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
