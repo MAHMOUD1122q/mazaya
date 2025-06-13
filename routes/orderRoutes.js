@@ -1,5 +1,5 @@
 import express from "express"
-import { addExpenses, addOrder, addPaymentToOrder, cancelOrder, getCliant, getExpencess, getOrderByCode, getOrders, getReports, labOrders, orderReady, refundOrder, reportPayment, updateOrder } from "../controller/orderController.js"
+import { addExpenses, addOrder, addPaymentToOrder, cancelOrder, getCliant, getExpencess, getOrderByCode, getOrders, getRefundOrdersToday, getReports, labOrders, orderReady, refundOrder, reportPayment, updateOrder } from "../controller/orderController.js"
 import { authenticate } from "../middlewares/auth.js"
 
 const router = express.Router()
@@ -18,5 +18,6 @@ router.get("/order-reports" , authenticate , getReports)
 router.post("/add-expenses" , authenticate , addExpenses)
 router.get("/get-expenses" , authenticate , getExpencess)
 router.get("/payment-summary" , authenticate , reportPayment)
+router.get("/get-refund" , authenticate , getRefundOrdersToday)
 
 export default router 
