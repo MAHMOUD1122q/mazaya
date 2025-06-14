@@ -280,20 +280,23 @@ const ordersWithPayment = todayOrders.filter(
   (order) => Array.isArray(order.payment) && order.payment.length > 0
 );
 
-const ordersWithPaymentStatus = ordersWithPayment.map((order) => {
-  const orderPayments = order.payment.reduce((sum, payment) => {
-    return sum + (payment.PaymentDone || 0);
-  }, 0);
-  const orderPendingBalance = (order.total_price || 0) - orderPayments;
+// Filter orders that have payments
+const ordersWithPaymentStatus = todayOrders
+  .filter(order => Array.isArray(order.payment) && order.payment.length > 0)
+  .map(order => {
+    const orderPayments = order.payment.reduce((sum, payment) => {
+      return sum + (payment.PaymentDone || 0);
+    }, 0);
+    const orderPendingBalance = (order.total_price || 0) - orderPayments;
 
+    const orderObj = order.toObject();
+    delete orderObj.payment; // Remove payment from response
 
-      
-      return {
-        ...order.toObject(),
-        payment_status: orderPendingBalance > 0 ? "not paid" : "paid",
-      };
-    });
-
+    return {
+      ...orderObj,
+      payment_status: orderPendingBalance > 0 ? "not paid" : "paid",
+    };
+  });
     res.status(200).json({
       success: true,
       date: today.toISOString().split("T")[0],
