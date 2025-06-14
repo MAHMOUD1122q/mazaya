@@ -682,8 +682,6 @@ export const getCliant = async (req, res) => {
         total_price: lastOrder.total_price,
         status: lastOrder.status,
         date: lastOrder.date,
-        order_details: lastOrder.order_details,
-        payment: lastOrder.payment,
       },
     };
 
