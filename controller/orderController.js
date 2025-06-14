@@ -223,7 +223,7 @@ export const getOrders = async (req, res) => {
     const todayOrders = await Order.find(query)
       .sort({ date: -1 })
       .select(
-        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone"
       );
     // Calculate metrics
     const totalOrdersToday = todayOrders.length;
@@ -275,14 +275,19 @@ export const getOrders = async (req, res) => {
 
       return acc;
     }, {});
+// Only include orders with non-empty payment array in the response
+const ordersWithPayment = todayOrders.filter(
+  (order) => Array.isArray(order.payment) && order.payment.length > 0
+);
 
-    // Add payment_status to each order
-    const ordersWithPaymentStatus = todayOrders.map((order) => {
-      const orderPayments =
-        order.payment?.reduce((sum, payment) => {
-          return sum + (payment.PaymentDone || 0);
-        }, 0) || 0;
-      const orderPendingBalance = (order.total_price || 0) - orderPayments;
+const ordersWithPaymentStatus = ordersWithPayment.map((order) => {
+  const orderPayments = order.payment.reduce((sum, payment) => {
+    return sum + (payment.PaymentDone || 0);
+  }, 0);
+  const orderPendingBalance = (order.total_price || 0) - orderPayments;
+
+
+      
       return {
         ...order.toObject(),
         payment_status: orderPendingBalance > 0 ? "not paid" : "paid",
