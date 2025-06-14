@@ -657,8 +657,30 @@ export const getCliant = async (req, res) => {
       });
     }
 
-    // Get the latest order
-    const lastOrder = allOrders.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+const latestThreeOrders = allOrders
+  .sort((a, b) => new Date(b.date) - new Date(a.date))
+  .slice(0, 3)
+  .map(order => {
+    const paidAmount = order.payment.reduce(
+      (acc, p) => acc + (p?.PaymentDone || 0),
+      0
+    );
+
+    const isFullyPaid = paidAmount >= order.total_price;
+
+    return {
+      order_code: order.order_code,
+      seller_name: order.seller_name,
+      branch: order.branch,
+      total_price: order.total_price,
+      status: order.status,
+      date: order.date,
+      is_fully_paid: isFullyPaid ? "paid" : "not paid",
+    };
+  });
+
+    const lastOrder = latestThreeOrders[0];
+const isFullyPaid = lastOrder.paid_amount >= lastOrder.total_price;
 
     // Calculate total pending amount
     const totalPendingAmount = allOrders.reduce((sum, order) => {
@@ -669,13 +691,6 @@ export const getCliant = async (req, res) => {
       return sum + (order.total_price - paid);
     }, 0);
 
-    const lastOrderPaid = lastOrder.payment.reduce(
-      (acc, p) => acc + (p?.PaymentDone || 0),
-      0
-    );
-
-    const isFullyPaid = lastOrderPaid >= lastOrder.total_price;
-
     // Final response
     const response = {
       customer_name: client.name,
@@ -683,14 +698,7 @@ export const getCliant = async (req, res) => {
       customer_code: client.code,
       total_pending_amount: totalPendingAmount,
       is_paid: isFullyPaid ? "paid" : "not paid",
-      last_order: {
-        order_code: lastOrder.order_code,
-        seller_name: lastOrder.seller_name,
-        branch: lastOrder.branch,
-        total_price: lastOrder.total_price,
-        status: lastOrder.status,
-        date: lastOrder.date,
-      },
+      last_orders: latestThreeOrders,
     };
 
     return res.status(200).json(response);
