@@ -697,7 +697,6 @@ const isFullyPaid = lastOrder.paid_amount >= lastOrder.total_price;
       customer_phone: client.phone,
       customer_code: client.code,
       total_pending_amount: totalPendingAmount,
-      is_paid: isFullyPaid ? "paid" : "not paid",
       last_orders: latestThreeOrders,
     };
 
