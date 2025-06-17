@@ -83,18 +83,11 @@ export const login = async (req, res) => {
       { lastLogin: new Date() }
     );
 
-    // Set refresh token cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
     // Send response
     res.json({
       message: "Login successful",
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -207,8 +200,7 @@ export const loginLab = async (req, res) => {
 };
 export const refreshToken = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
-
+   const { refreshToken: token } = req.body;
     if (!token) {
       return res.status(401).json({ message: "Refresh token not found" });
     }
@@ -258,7 +250,7 @@ export const refreshToken = async (req, res) => {
 // LOGOUT CONTROLLER
 export const logout = async (req, res) => {
   try {
-    const { refreshToken } = req.cookies;
+     const { refreshToken: token } = req.body;
 
     if (refreshToken) {
       // Remove token from database
