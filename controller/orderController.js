@@ -13,7 +13,6 @@ function generateOrderCode() {
 export const addOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
   try {
     let {
       customer_name,
@@ -32,7 +31,6 @@ export const addOrder = async (req, res) => {
     } else {
       await Client.create({ name: customer_name, phone: customer_phone });
     }
-
 
     const order_code = generateOrderCode();
     const branch = req.user.branch;
@@ -187,7 +185,7 @@ export const addOrder = async (req, res) => {
 
 export const getOrders = async (req, res) => {
   try {
-    // Get branch from token and normalize
+    // Normalize user branch from token
     let userBranch = req.user.branch;
     if (userBranch === "ميامي") {
       userBranch = "miami";
@@ -199,113 +197,56 @@ export const getOrders = async (req, res) => {
 
     // Get today's date range
     const today = new Date();
-    const startOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-    const endOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() + 1
-    );
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-    // Build query - always filter by user's branch from token
-    let query = {
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay,
-      },
+    // Query for today's active orders (excluding refunds and cancellations)
+    const query = {
+      date: { $gte: startOfDay, $lt: endOfDay },
       branch: new RegExp(userBranch, "i"),
       status: { $nin: ["cancelled", "refund"] },
     };
 
+    // Fetch today's orders
     const todayOrders = await Order.find(query)
       .sort({ date: -1 })
       .select(
-        "-__v -branch -seller_name -status -_id -order_details -customer_phone"
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
       );
-    // Calculate metrics
+
+    // Calculate number of refund orders separately
+    const refundOrdersCount = await Order.countDocuments({
+      date: { $gte: startOfDay, $lt: endOfDay },
+      branch: new RegExp(userBranch, "i"),
+      status: "refund",
+    });
+
+    // Total number of orders
     const totalOrdersToday = todayOrders.length;
 
+    // Sum of payments for today’s orders
     const totalProfitToday = todayOrders.reduce((total, order) => {
-      const orderPayments =
-        order.payment?.reduce((paymentSum, payment) => {
-          return paymentSum + (payment.PaymentDone || 0);
-        }, 0) || 0;
+      const orderPayments = order.payment?.reduce((sum, p) => sum + (p.PaymentDone || 0), 0) || 0;
       return total + orderPayments;
     }, 0);
 
-    const totalRevenueToday = todayOrders.reduce((total, order) => {
-      return total + (order.total_price || 0);
-    }, 0);
+    // Add payment status per order
+    const ordersWithPaymentStatus = todayOrders.map((order) => {
+      const orderPayments = order.payment?.reduce((sum, p) => sum + (p.PaymentDone || 0), 0) || 0;
+      const pending = (order.total_price || 0) - orderPayments;
+      return {
+        ...order.toObject(),
+        payment_status: pending > 0 ? "not paid" : "paid",
+      };
+    });
 
-    const pendingBalance = totalRevenueToday - totalProfitToday;
-
-    // Count refund orders
-    const refundOrdersCount = todayOrders.filter(
-      (order) => order.status?.toLowerCase() === "refund"
-    ).length;
-
-    // Group orders by status
-    const ordersByStatus = todayOrders.reduce((acc, order) => {
-      const status = order.status || "unknown";
-      if (!acc[status]) {
-        acc[status] = { count: 0, total_value: 0 };
-      }
-      acc[status].count += 1;
-      acc[status].total_value += order.total_price || 0;
-      return acc;
-    }, {});
-
-    // Get seller stats
-    const sellerStats = todayOrders.reduce((acc, order) => {
-      const seller = order.seller_name || "Unknown";
-      if (!acc[seller]) {
-        acc[seller] = { orders: 0, total_sales: 0, profit: 0 };
-      }
-      acc[seller].orders += 1;
-      acc[seller].total_sales += order.total_price || 0;
-
-      const sellerProfit =
-        order.payment?.reduce((sum, payment) => {
-          return sum + (payment.PaymentDone || 0);
-        }, 0) || 0;
-      acc[seller].profit += sellerProfit;
-
-      return acc;
-    }, {});
-// Only include orders with non-empty payment array in the response
-const ordersWithPayment = todayOrders.filter(
-  (order) => Array.isArray(order.payment) && order.payment.length > 0
-);
-
-// Filter orders that have payments
-const ordersWithPaymentStatus = todayOrders
-  .filter(order => Array.isArray(order.payment) && order.payment.length > 0)
-  .map(order => {
-    const orderPayments = order.payment.reduce((sum, payment) => {
-      return sum + (payment.PaymentDone || 0);
-    }, 0);
-    const orderPendingBalance = (order.total_price || 0) - orderPayments;
-
-    const orderObj = order.toObject();
-    delete orderObj.payment; // Remove payment from response
-
-    return {
-      ...orderObj,
-      payment_status: orderPendingBalance > 0 ? "not paid" : "paid",
-    };
-  });
     res.status(200).json({
       success: true,
       date: today.toISOString().split("T")[0],
       branch: userBranch,
       summary: {
         total_orders: totalOrdersToday,
-        // total_revenue: totalRevenueToday,
         total_profit: totalProfitToday,
-        // pending_balance: pendingBalance,
         refund_orders: refundOrdersCount,
       },
       orders: ordersWithPaymentStatus,
@@ -430,7 +371,6 @@ export const refundOrder = async (req, res) => {
 
     return res.status(200).json({
       message: "Order marked as refunded",
-      updated_order: order,
     });
   } catch (error) {
     console.error(error);
@@ -453,7 +393,6 @@ export const cancelOrder = async (req, res) => {
 
     return res.status(200).json({
       message: "Order marked as cancelled",
-      updated_order: order,
     });
   } catch (error) {
     console.error(error);
@@ -571,39 +510,152 @@ export const orderReady = async (req, res) => {
 };
 
 export const updateOrder = async (req, res) => {
-  const { code } = req.params;
-  const updateData = req.body;
-
-  if (!code) {
-    return res.status(400).json("Order code is required");
-  }
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    const order = await Order.findOne({ order_code: code });
+    const { order_code } = req.params;
+    let {
+      customer_name,
+      customer_phone,
+      total_price,
+      notes,
+      order_details,
+      payment,
+    } = req.body;
 
-    if (!order) {
-      return res.status(404).json("Order not found");
+    if (!order_details || !Array.isArray(order_details)) {
+      return res.status(400).json({
+        success: false,
+        message: "order_details must be an array",
+      });
     }
 
-    // Prevent updating immutable fields
-    delete updateData._id;
-    delete updateData.order_code;
-    delete updateData.__v;
+    const existingOrder = await Order.findOne({ order_code }).session(session);
+    if (!existingOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
 
-    // Update top-level fields and arrays like order_details and payment if provided
-    Object.keys(updateData).forEach((key) => {
-      order[key] = updateData[key];
-    });
+    const branch = existingOrder.branch;
+    const oldOrderDetails = existingOrder.order_details;
 
-    await order.save();
+    const countItemsByCode = (details) =>
+      details.reduce((acc, detail) => {
+        const code = detail.item_code;
+        acc[code] = (acc[code] || 0) + (detail.quantity || 1);
+        return acc;
+      }, {});
 
-    res.status(200).json({
+    const oldItemCounts = countItemsByCode(oldOrderDetails);
+    const newItemCounts = countItemsByCode(order_details);
+
+    const removedItems = [];
+    const addedItems = [];
+
+    for (const code in oldItemCounts) {
+      const oldQty = oldItemCounts[code] || 0;
+      const newQty = newItemCounts[code] || 0;
+      if (oldQty > newQty) {
+        removedItems.push({ item_code: code, quantity: oldQty - newQty });
+      }
+    }
+
+    for (const code in newItemCounts) {
+      const oldQty = oldItemCounts[code] || 0;
+      const newQty = newItemCounts[code] || 0;
+      if (newQty > oldQty) {
+        addedItems.push({ item_code: code, quantity: newQty - oldQty });
+      }
+    }
+
+    const changeLog = { modifiedFields: [], replacedProducts: [] };
+    let priceAdjustment = 0;
+
+    // Restore inventory from removed items
+    for (const { item_code, quantity } of removedItems) {
+      const product = await Product.findOne({ code: item_code }).session(session);
+      if (!product) throw new Error(`Product ${item_code} not found`);
+
+      const currentQty = product[branch] || 0;
+      const totalQty = product.quantity || 0;
+
+      await Product.findByIdAndUpdate(
+        product._id,
+        {
+          $set: {
+            [branch]: currentQty + quantity,
+            quantity: totalQty + quantity,
+          },
+        },
+        { session }
+      );
+
+      const oldDetail = oldOrderDetails.find((d) => d.item_code === item_code);
+      const itemPrice = oldDetail?.glassPrice || 0;
+      priceAdjustment -= itemPrice * quantity;
+
+      changeLog.modifiedFields.push(`removed item ${item_code} (quantity: ${quantity})`);
+    }
+
+    // Deduct inventory for added items
+    for (const { item_code, quantity } of addedItems) {
+      const product = await Product.findOne({ code: item_code }).session(session);
+      if (!product) throw new Error(`Product ${item_code} not found`);
+
+      const available = product[branch] || 0;
+      if (available < quantity) throw new Error(`Insufficient quantity for ${item_code}`);
+
+      await Product.findByIdAndUpdate(
+        product._id,
+        {
+          $set: {
+            [branch]: available - quantity,
+            quantity: product.quantity - quantity,
+          },
+        },
+        { session }
+      );
+
+      const newDetail = order_details.find((d) => d.item_code === item_code);
+      const itemPrice = newDetail?.glassPrice || 0;
+      priceAdjustment += itemPrice * quantity;
+    }
+
+    // Default missing glassPrice to 0
+    order_details = order_details.map((d) => ({
+      ...d,
+      glassPrice: d.glassPrice || 0,
+    }));
+
+    const updatedOrder = await Order.findOneAndUpdate(
+      { order_code },
+      {
+        customer_name,
+        customer_phone,
+        total_price: total_price ?? existingOrder.total_price + priceAdjustment,
+        notes,
+        order_details,
+        payment,
+      },
+      { new: true, session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
       success: true,
-      message: `Order ${code} updated successfully`,
-      order,
+      message: "Order updated successfully",
+      change_log: changeLog,
+      updated_order: updatedOrder,
     });
   } catch (error) {
-    console.error("Error updating order:", error);
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Server error while updating order",
@@ -611,6 +663,8 @@ export const updateOrder = async (req, res) => {
     });
   }
 };
+
+
 export const getCliant = async (req, res) => {
   try {
     const { search } = req.query;
@@ -626,6 +680,7 @@ export const getCliant = async (req, res) => {
     // Build the client search query
     const clientQuery = {
       $or: [
+        { name: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } },
       ],
     };
@@ -657,30 +712,10 @@ export const getCliant = async (req, res) => {
       });
     }
 
-const latestThreeOrders = allOrders
-  .sort((a, b) => new Date(b.date) - new Date(a.date))
-  .slice(0, 3)
-  .map(order => {
-    const paidAmount = order.payment.reduce(
-      (acc, p) => acc + (p?.PaymentDone || 0),
-      0
-    );
-
-    const isFullyPaid = paidAmount >= order.total_price;
-
-    return {
-      order_code: order.order_code,
-      seller_name: order.seller_name,
-      branch: order.branch,
-      total_price: order.total_price,
-      status: order.status,
-      date: order.date,
-      is_fully_paid: isFullyPaid ? "paid" : "not paid",
-    };
-  });
-
-    const lastOrder = latestThreeOrders[0];
-const isFullyPaid = lastOrder.paid_amount >= lastOrder.total_price;
+    // Get the latest order
+    const lastOrder = allOrders.sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    )[0];
 
     // Calculate total pending amount
     const totalPendingAmount = allOrders.reduce((sum, order) => {
@@ -691,13 +726,30 @@ const isFullyPaid = lastOrder.paid_amount >= lastOrder.total_price;
       return sum + (order.total_price - paid);
     }, 0);
 
+    const lastOrderPaid = lastOrder.payment.reduce(
+      (acc, p) => acc + (p?.PaymentDone || 0),
+      0
+    );
+
+    const isFullyPaid = lastOrderPaid >= lastOrder.total_price;
+
     // Final response
     const response = {
       customer_name: client.name,
       customer_phone: client.phone,
       customer_code: client.code,
       total_pending_amount: totalPendingAmount,
-      last_orders: latestThreeOrders,
+      is_paid: isFullyPaid ? "paid" : "not paid",
+      last_order: {
+        order_code: lastOrder.order_code,
+        seller_name: lastOrder.seller_name,
+        branch: lastOrder.branch,
+        total_price: lastOrder.total_price,
+        status: lastOrder.status,
+        date: lastOrder.date,
+        order_details: lastOrder.order_details,
+        payment: lastOrder.payment,
+      },
     };
 
     return res.status(200).json(response);
@@ -708,7 +760,6 @@ const isFullyPaid = lastOrder.paid_amount >= lastOrder.total_price;
       .json({ message: "Server error", error: error.message });
   }
 };
-
 
 export const getReports = async (req, res) => {
   try {
@@ -1034,7 +1085,10 @@ export const getRefundOrdersToday = async (req, res) => {
       date: { $gte: startOfDay, $lte: endOfDay },
     };
 
-    const refundedOrders = await Order.find(filter).sort({ date: -1 }).lean().select("-__v");
+    const refundedOrders = await Order.find(filter)
+      .sort({ date: -1 })
+      .lean()
+      .select("-__v");
 
     res.status(200).json({
       message: "refunded orders",
@@ -1043,5 +1097,34 @@ export const getRefundOrdersToday = async (req, res) => {
   } catch (error) {
     console.error("Error fetching today's refunded orders:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid order ID." });
+    }
+
+    // Update the order status
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { status: "In progress" },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    res.status(200).json({
+      message: 'Order status updated to "In progress".',
+    });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 };

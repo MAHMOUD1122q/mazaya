@@ -6,149 +6,236 @@ const generateProductCode = () => {
   return `${prefix}-${randomPart}`;
 };
 
-
 // GET product by code
 export const getByCode = async (req, res) => {
   try {
-    const product = await Product.findOne({ code: req.params.code }).select("-__v -branches -_id -totalQuantity");
+    const product = await Product.findOne({ code: req.params.code }).select(
+      "-__v -branches -_id -totalQuantity"
+    );
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: "Product not found" });
     }
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}
+};
 
 export const addProduct = async (req, res) => {
   try {
     const {
+      productType,
       name,
-      category,
-      totalQuantity,
-      quantityMiami,
-      quantityGlanklis,
-      quantitySeyouf,
-      price
+      glassShape,
+      glassMaterial,
+      lensPower,
+      lensType,
+      lensColor,
+      price,
+      quantity,
+      miami,
+      glanklis,
+      seyouf,
     } = req.body;
 
-    if (
-      !name ||
-      !category ||
-      quantityMiami == null ||
-      quantityGlanklis == null ||
-      quantitySeyouf == null
-    ) {
+    // Basic validation
+    if (!productType || !name || !price) {
       return res.status(400).json({
-        message: "Please fill in name, category, and all branch quantities.",
+        success: false,
+        message: "الرجاء إدخال جميع الحقول المطلوبة (نوع المنتج، الاسم، السعر)",
       });
     }
 
-    const calculatedTotal =
-      Number(quantityMiami) + Number(quantityGlanklis) + Number(quantitySeyouf);
-
-    const finalTotal = totalQuantity != null ? totalQuantity : calculatedTotal;
+    if (!["lens", "glasses"].includes(productType)) {
+      return res.status(400).json({
+        success: false,
+        message: "نوع المنتج يجب أن يكون عدسات أو نظارات",
+      });
+    }
 
     const newProduct = new Product({
+      productType,
       name,
-      category,
-      code: generateProductCode(),
-      totalQuantity: finalTotal,
-      branches: {
-        miami: quantityMiami,
-        glanklis: quantityGlanklis,
-        seyouf: quantitySeyouf,
-      },
-      price
+      glassShape: glassShape || null,
+      glassMaterial: glassMaterial || null,
+      lensPower: lensPower || null,
+      lensType: lensType || null,
+      lensColor: lensColor || null,
+      price: parseFloat(price),
+      quantity: quantity || 0,
+      miami: miami || 0,
+      glanklis: glanklis || 0,
+      seyouf: seyouf || 0,
     });
 
-    await newProduct.save();
+    const savedProduct = await newProduct.save();
 
     res.status(201).json({
-      message: "Product added successfully",
-      product: newProduct,
+      success: true,
+      message: `تم إضافة المنتج بنجاح - الكود: ${savedProduct.code}`,
+      product: savedProduct,
     });
   } catch (error) {
     console.error("Error adding product:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إضافة المنتج",
+      error: error.message,
+    });
   }
 };
+
 export const getProducts = async (req, res) => {
   try {
-    const { branch , search } = req.query;
-    
+    const { branch, search, productType } = req.query;
+
     // Build the query object
     let query = {};
-    
-    
-    // 🔍 Search by name or code using a single search string
+
+    // Filter by product type (lens or glasses)
+    if (productType) {
+      const validTypes = ["lens", "glasses"];
+      if (!validTypes.includes(productType.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product type. Valid types are: lens, glasses",
+        });
+      }
+      query.productType = productType.toLowerCase();
+    }
+
+    // 🔍 Enhanced search by name, code, or product details
     if (search) {
       query.$or = [
         { name: new RegExp(search, "i") },
-        { code: new RegExp(search, "i") }
+        { code: new RegExp(search, "i") },
       ];
     }
-    
-    // Filter by branch quantity if branch is specified
+
+    // Validate branch parameter
     if (branch) {
-      const validBranches = ['miami', 'glanklis', 'seyouf'];
+      const validBranches = ["miami", "glanklis", "seyouf"];
       if (!validBranches.includes(branch.toLowerCase())) {
         return res.status(400).json({
           success: false,
-          message: "Invalid branch. Valid branches are: miami, glanklis, seyouf"
+          message:
+            "Invalid branch. Valid branches are: miami, glanklis, seyouf",
         });
       }
-      
-      
     }
-    
+
     // Get products from database
-    const products = await Product.find(query);
-    
+    const products = await Product.find(query).sort({ createdAt: -1 });
+
     // Format the response based on whether branch filter is applied
     let formattedProducts;
-    
+
     if (branch) {
       // If specific branch is requested, highlight that branch's quantity
-      formattedProducts = products.map(product => ({
+      formattedProducts = products.map((product) => ({
         _id: product._id,
         code: product.code,
+        productType: product.productType,
+        productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
         category: product.category,
         name: product.name,
+        price: product.price,
+        // Include relevant details based on product type
+        details:
+          product.productType === "glasses"
+            ? product.glassesDetails
+            : product.lensDetails,
         selectedBranch: {
           name: branch.toLowerCase(),
-          quantity: product.branches[branch.toLowerCase()]
+          nameArabic: getBranchNameArabic(branch.toLowerCase()),
+          quantity: product.branches[branch.toLowerCase()],
         },
-        totalQuantity: product.totalQuantity
+        totalQuantity: product.totalQuantity,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
       }));
     } else {
       // If no specific branch, show all branch quantities
-      formattedProducts = products.map(product => ({
+      formattedProducts = products.map((product) => ({
         _id: product._id,
         code: product.code,
+        productType: product.productType,
+        productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
         category: product.category,
         name: product.name,
+        price: product.price,
+        // Include relevant details based on product type
+        details:
+          product.productType === "glasses"
+            ? product.glassesDetails
+            : product.lensDetails,
         branches: {
-          miami: product.branches.miami,
-          glanklis: product.branches.glanklis,
-          seyouf: product.branches.seyouf
+          miami: {
+            quantity: product.branches.miami,
+            nameArabic: "ميامي",
+          },
+          glanklis: {
+            quantity: product.branches.glanklis,
+            nameArabic: "جلانكليس",
+          },
+          seyouf: {
+            quantity: product.branches.seyouf,
+            nameArabic: "السيوف",
+          },
         },
-        totalQuantity: product.totalQuantity
+        totalQuantity: product.totalQuantity,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
       }));
     }
-    
+
+    // Add summary statistics
+    const summary = {
+      totalProducts: formattedProducts.length,
+      lensCount: formattedProducts.filter((p) => p.productType === "lens")
+        .length,
+      glassesCount: formattedProducts.filter((p) => p.productType === "glasses")
+        .length,
+      totalInventoryValue: formattedProducts.reduce(
+        (sum, p) => sum + p.price * p.totalQuantity,
+        0
+      ),
+    };
+
+    if (branch) {
+      summary.branchInventoryValue = formattedProducts.reduce(
+        (sum, p) => sum + p.price * p.selectedBranch.quantity,
+        0
+      );
+    }
+
     res.status(200).json({
       success: true,
       count: formattedProducts.length,
-      data: formattedProducts
+      summary,
+      filters: {
+        branch: branch || null,
+        search: search || null,
+        productType: productType || null,
+      },
+      data: formattedProducts,
     });
-    
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({
       success: false,
-      message: "Server error while fetching products",
-      error: error.message
+      message: "خطأ في الخادم أثناء جلب المنتجات",
+      error: error.message,
     });
   }
-}
+};
+
+// Helper function to get Arabic branch names
+const getBranchNameArabic = (branchName) => {
+  const branchNames = {
+    miami: "ميامي",
+    glanklis: "جلانكليس",
+    seyouf: "السيوف",
+  };
+  return branchNames[branchName] || branchName;
+};

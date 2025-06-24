@@ -11,7 +11,7 @@ export const authenticate = (req, res, next) => {
 
     jwt.verify(token, ACCESS_SECRET, (err, decoded) => {
         if (err) {
-            return res.status(401).json({ message: "Invalid token" });
+            return res.status(403).json({ message: "Invalid token" });
         }
 
         req.user = decoded.user; // Attach user data to request
