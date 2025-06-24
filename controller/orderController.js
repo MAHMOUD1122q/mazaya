@@ -321,9 +321,16 @@ export const getOrderByCode = async (req, res) => {
 
 export const addPaymentToOrder = async (req, res) => {
   const { code } = req.params;
-  const { payment } = req.body;
+  const {
+    PaymentDone,
+    payment_method,
+    bank,
+    method,
+    code: paymentCode,
+    discount,
+  } = req.body;
 
-  if (!payment || !payment.PaymentDone || payment.PaymentDone <= 0) {
+  if (!PaymentDone || PaymentDone <= 0) {
     return res.status(400).json("Payment amount must be greater than 0");
   }
 
@@ -334,14 +341,21 @@ export const addPaymentToOrder = async (req, res) => {
       return res.status(404).json("Order not found");
     }
 
-    // Add new payment correctly (flat structure, not nested)
-    order.payment.push(payment);
+    // Create payment object
+    const newPayment = {
+      PaymentDone,
+      payment_method,
+      bank,
+      method,
+      code: paymentCode,
+      discount,
+    };
 
+    order.payment.push(newPayment);
     await order.save();
 
     return res.status(200).json({
       message: "Payment added successfully",
-      updated_payment: order.payment,
     });
   } catch (error) {
     console.error(error);
