@@ -125,7 +125,7 @@ export const getProducts = async (req, res) => {
     }
 
     // Get products from database
-    const products = await Product.find(query).sort({ createdAt: -1 });
+    const products = await Product.find(query).sort({ createdAt: -1 }).select("-updatedAt -createdAt -_id");
 
     // Format the response based on whether branch filter is applied
     let formattedProducts;
