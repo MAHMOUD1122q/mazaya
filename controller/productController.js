@@ -152,13 +152,11 @@ export const getProducts = async (req, res) => {
           _id: product._id,
           code: product.code,
           productType: product.productType,
-          productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
           name: product.name,
           price: product.price,
           details,
           selectedBranch: {
             name: branch.toLowerCase(),
-            nameArabic: getBranchNameArabic(branch.toLowerCase()),
             quantity: product[branch.toLowerCase()] || 0,
           },
           totalQuantity,
@@ -188,22 +186,18 @@ export const getProducts = async (req, res) => {
           _id: product._id,
           code: product.code,
           productType: product.productType,
-          productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
           name: product.name,
           price: product.price,
           details,
           branches: {
             miami: {
               quantity: product.miami || 0,
-              nameArabic: "ميامي",
             },
             glanklis: {
               quantity: product.glanklis || 0,
-              nameArabic: "جلانكليس",
             },
             seyouf: {
               quantity: product.seyouf || 0,
-              nameArabic: "السيوف",
             },
           },
           totalQuantity,
