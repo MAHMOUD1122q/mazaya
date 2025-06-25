@@ -1094,7 +1094,7 @@ export const getRefundOrdersToday = async (req, res) => {
     const refundedOrders = await Order.find(filter)
       .sort({ date: -1 })
       .lean()
-      .select("-__v -order_details -seller_name -notes ");
+      .select("-__v -order_details -seller_name -notes -payment -_id");
 
     res.status(200).json({
       message: "refunded orders",
