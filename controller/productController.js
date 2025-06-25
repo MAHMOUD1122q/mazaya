@@ -10,7 +10,7 @@ const generateProductCode = () => {
 export const getByCode = async (req, res) => {
   try {
     const product = await Product.findOne({ code: req.params.code }).select(
-      "-__v -branches -_id -totalQuantity"
+      "-__v -branches -_id -totalQuantity -createdAt -updatedAt "
     );
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
