@@ -89,10 +89,10 @@ export const getProducts = async (req, res) => {
   try {
     const { branch, search, productType } = req.query;
 
-    // Build the query object
+    // Build query
     let query = {};
 
-    // Filter by product type (lens or glasses)
+    // Validate and apply product type filter
     if (productType) {
       const validTypes = ["lens", "glasses"];
       if (!validTypes.includes(productType.toLowerCase())) {
@@ -104,7 +104,7 @@ export const getProducts = async (req, res) => {
       query.productType = productType.toLowerCase();
     }
 
-    // 🔍 Enhanced search by name, code, or product details
+    // Search by name or code
     if (search) {
       query.$or = [
         { name: new RegExp(search, "i") },
@@ -112,27 +112,21 @@ export const getProducts = async (req, res) => {
       ];
     }
 
-    // Validate branch parameter
-    if (branch) {
-      const validBranches = ["miami", "glanklis", "seyouf"];
-      if (!validBranches.includes(branch.toLowerCase())) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid branch. Valid branches are: miami, glanklis, seyouf",
-        });
-      }
+    // Validate branch
+    const validBranches = ["miami", "glanklis", "seyouf"];
+    if (branch && !validBranches.includes(branch.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid branch. Valid branches are: miami, glanklis, seyouf",
+      });
     }
 
-    // Get products from database
+    // Fetch products
     const products = await Product.find(query).sort({ createdAt: -1 });
 
-    // Format the response based on whether branch filter is applied
-    let formattedProducts;
-
-    if (branch) {
-      // If specific branch is requested, highlight that branch's quantity
-      formattedProducts = products.map((product) => ({
+    // Format products
+    const formattedProducts = products.map((product) => {
+      const base = {
         _id: product._id,
         code: product.code,
         productType: product.productType,
@@ -140,62 +134,60 @@ export const getProducts = async (req, res) => {
         category: product.category,
         name: product.name,
         price: product.price,
-        // Include relevant details based on product type
         details:
           product.productType === "glasses"
-            ? product.glassesDetails
-            : product.lensDetails,
-        selectedBranch: {
-          name: branch.toLowerCase(),
-          nameArabic: getBranchNameArabic(branch.toLowerCase()),
-          quantity: product.branches[branch.toLowerCase()],
-        },
-        totalQuantity: product.totalQuantity,
+            ? {
+                glassShape: product.glassShape,
+                glassMaterial: product.glassMaterial,
+              }
+            : {
+                lensPower: product.lensPower,
+                lensType: product.lensType,
+                lenscolor: product.lenscolor,
+              },
+        totalQuantity: product.quantity,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
-      }));
-    } else {
-      // If no specific branch, show all branch quantities
-      formattedProducts = products.map((product) => ({
-        _id: product._id,
-        code: product.code,
-        productType: product.productType,
-        productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
-        category: product.category,
-        name: product.name,
-        price: product.price,
-        // Include relevant details based on product type
-        details:
-          product.productType === "glasses"
-            ? product.glassesDetails
-            : product.lensDetails,
-        branches: {
-          miami: {
-            quantity: product.branches.miami,
-            nameArabic: "ميامي",
-          },
-          glanklis: {
-            quantity: product.branches.glanklis,
-            nameArabic: "جلانكليس",
-          },
-          seyouf: {
-            quantity: product.branches.seyouf,
-            nameArabic: "السيوف",
-          },
-        },
-        totalQuantity: product.totalQuantity,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      }));
-    }
+      };
 
-    // Add summary statistics
+      if (branch) {
+        return {
+          ...base,
+          selectedBranch: {
+            name: branch.toLowerCase(),
+            nameArabic: getBranchNameArabic(branch.toLowerCase()),
+            quantity: product[branch.toLowerCase()],
+          },
+        };
+      } else {
+        return {
+          ...base,
+          branches: [
+            {
+              name: "miami",
+              nameArabic: "ميامي",
+              quantity: product.miami,
+            },
+            {
+              name: "glanklis",
+              nameArabic: "جلانكليس",
+              quantity: product.glanklis,
+            },
+            {
+              name: "seyouf",
+              nameArabic: "السيوف",
+              quantity: product.seyouf,
+            },
+          ],
+        };
+      }
+    });
+
+    // Summary
     const summary = {
       totalProducts: formattedProducts.length,
-      lensCount: formattedProducts.filter((p) => p.productType === "lens")
-        .length,
-      glassesCount: formattedProducts.filter((p) => p.productType === "glasses")
-        .length,
+      lensCount: formattedProducts.filter((p) => p.productType === "lens").length,
+      glassesCount: formattedProducts.filter((p) => p.productType === "glasses").length,
       totalInventoryValue: formattedProducts.reduce(
         (sum, p) => sum + p.price * p.totalQuantity,
         0
@@ -230,6 +222,15 @@ export const getProducts = async (req, res) => {
   }
 };
 
+// Helper function
+function getBranchNameArabic(name) {
+  const map = {
+    miami: "ميامي",
+    glanklis: "جلانكليس",
+    seyouf: "السيوف",
+  };
+  return map[name] || name;
+}
 // Helper function to get Arabic branch names
 const getBranchNameArabic = (branchName) => {
   const branchNames = {
