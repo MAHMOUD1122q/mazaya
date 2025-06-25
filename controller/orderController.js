@@ -443,7 +443,7 @@ export const labOrders = async (req, res) => {
     })
       .sort({ date: -1 })
       .select(
-        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment -notes"
       );
 
     // Add payment_status to each order
