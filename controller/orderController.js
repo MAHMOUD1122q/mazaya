@@ -1116,20 +1116,20 @@ export const getRefundOrdersToday = async (req, res) => {
 
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+const { code } = req.params;
 
-    // Validate MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid order ID." });
+// Validate presence of order code
+    if (!code) {
+      return res.status(400).json({ message: "Invalid order code." });
     }
-
-    // Update the order status
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
+    
+    // Update the order status using the unique order_code field
+    const updatedOrder = await Order.findOneAndUpdate(
+      { order_code: code },
       { status: "In progress" },
-      { new: true } // Return the updated document
+      { new: true }
     );
-
+    
     if (!updatedOrder) {
       return res.status(404).json({ message: "Order not found." });
     }
