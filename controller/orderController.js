@@ -777,9 +777,7 @@ export const getReports = async (req, res) => {
     const { branch, date } = req.query;
 
     // Build query
-    const query = {
-      status: { $nin: ["refund", "cancelled"] },
-    };
+    const query = {};
 
     if (branch) {
       query.branch = branch;
@@ -1096,7 +1094,7 @@ export const getRefundOrdersToday = async (req, res) => {
     const refundedOrders = await Order.find(filter)
       .sort({ date: -1 })
       .lean()
-      .select("-__v");
+      .select("-__v -order_details -seller_name -notes ");
 
     res.status(200).json({
       message: "refunded orders",
