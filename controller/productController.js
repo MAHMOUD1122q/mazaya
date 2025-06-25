@@ -157,7 +157,7 @@ export const getProducts = async (req, res) => {
           code: product.code,
           productType: product.productType,
           name: product.name,
-          branch: branchQuantity,
+          quantity: branchQuantity,
         };
       });
     } else {
