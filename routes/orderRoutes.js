@@ -19,6 +19,6 @@ router.post("/add-expenses" , authenticate , addExpenses)
 router.get("/get-expenses" , authenticate , getExpencess)
 router.get("/payment-summary" , authenticate , reportPayment)
 router.get("/get-refund" , authenticate , getRefundOrdersToday)
-router.put("/update/:id/status" , authenticate , updateOrderStatus)
+router.put("/update/:code/status" , authenticate , updateOrderStatus)
 
 export default router 
