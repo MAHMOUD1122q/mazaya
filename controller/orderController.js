@@ -439,7 +439,7 @@ export const labOrders = async (req, res) => {
     // Get lab orders
     const labOrders = await Order.find({
       date: { $gte: startOfDay, $lt: endOfDay },
-      status: "lab",
+     status: { $in: ["lab", "In progress"] },
     })
       .sort({ date: -1 })
       .select(
