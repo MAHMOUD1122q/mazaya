@@ -829,8 +829,7 @@ export const getReports = async (req, res) => {
 
       return {
         ...orderWithoutPayment,
-        pending_amount: pendingAmount >= 0 ? pendingAmount : 0,
-        is_paid: isFullyPaid ? "paid" : "not paid",
+        payment_status: isFullyPaid ? "paid" : "not paid",
       };
     });
 
