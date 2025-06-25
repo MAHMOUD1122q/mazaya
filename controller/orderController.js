@@ -211,7 +211,7 @@ export const getOrders = async (req, res) => {
     const todayOrders = await Order.find(query)
       .sort({ date: -1 })
       .select(
-        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment"
+        "-__v -branch -seller_name -status -_id -order_details -customer_phone -payment -notes"
       );
 
     // Calculate number of refund orders separately
