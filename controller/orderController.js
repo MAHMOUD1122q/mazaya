@@ -825,7 +825,7 @@ export const getReports = async (req, res) => {
       const pendingAmount = order.total_price - paymentDone;
       const isFullyPaid = order.total_price <= paymentDone;
 
-      const { payment, ...orderWithoutPayment } = order;
+      const { payment ,_id , ...orderWithoutPayment } = order;
 
       return {
         ...orderWithoutPayment,
