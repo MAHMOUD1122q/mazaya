@@ -85,6 +85,7 @@ export const addProduct = async (req, res) => {
   }
 };
 
+
 export const getProducts = async (req, res) => {
   try {
     const { branch, search, productType } = req.query;
@@ -125,7 +126,7 @@ export const getProducts = async (req, res) => {
     }
 
     // Get products from database
-    const products = await Product.find(query).sort({ createdAt: -1 }).select("-updatedAt -createdAt ");
+    const products = await Product.find(query).sort({ createdAt: -1 }).select("-updatedAt -createdAt");
 
     // Format the response based on whether branch filter is applied
     let formattedProducts;
@@ -135,6 +136,9 @@ export const getProducts = async (req, res) => {
       formattedProducts = products.map((product) => {
         // Calculate total quantity from individual branches
         const totalQuantity = (product.miami || 0) + (product.glanklis || 0) + (product.seyouf || 0);
+        
+        // Get the specific branch quantity
+        const branchQuantity = product[branch.toLowerCase()] || 0;
         
         // Get details based on product type
         const details = product.productType === "glasses" 
@@ -154,7 +158,7 @@ export const getProducts = async (req, res) => {
           productType: product.productType,
           name: product.name,
           price: product.price,
-          branch: branch.toLowerCase(),
+          branch: branchQuantity,
           totalQuantity,
         };
       });
@@ -184,10 +188,13 @@ export const getProducts = async (req, res) => {
           price: product.price,
           branches: {
             miami: {
+              quantity: product.miami || 0,
             },
             glanklis: {
+              quantity: product.glanklis || 0,
             },
             seyouf: {
+              quantity: product.seyouf || 0,
             },
           },
           totalQuantity,
@@ -198,26 +205,24 @@ export const getProducts = async (req, res) => {
     // Add summary statistics
     const summary = {
       totalProducts: formattedProducts.length,
-      lensCount: formattedProducts.filter((p) => p.productType === "lens")
-        .length,
-      glassesCount: formattedProducts.filter((p) => p.productType === "glasses")
-        .length,
+      lensCount: formattedProducts.filter((p) => p.productType === "lens").length,
+      glassesCount: formattedProducts.filter((p) => p.productType === "glasses").length,
       totalInventoryValue: formattedProducts.reduce(
-        (sum, p) => sum + p.price * p.totalQuantity,
+        (sum, p) => sum + (p.price * p.totalQuantity),
         0
       ),
     };
 
+    // Fix the branch inventory value calculation
     if (branch) {
       summary.branchInventoryValue = formattedProducts.reduce(
-        (sum, p) => sum + p.price * p.selectedBranch.quantity,
+        (sum, p) => sum + (p.price * p.branchQuantity), // Use branchQuantity instead of selectedBranch.quantity
         0
       );
     }
 
     res.status(200).json({
       success: true,
-      count: formattedProducts.length,
       data: formattedProducts,
     });
   } catch (error) {
