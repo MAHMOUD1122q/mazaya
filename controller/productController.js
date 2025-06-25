@@ -154,14 +154,8 @@ export const getProducts = async (req, res) => {
           productType: product.productType,
           name: product.name,
           price: product.price,
-          details,
-          selectedBranch: {
-            name: branch.toLowerCase(),
-            quantity: product[branch.toLowerCase()] || 0,
-          },
+          branch: branch.toLowerCase(),
           totalQuantity,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
         };
       });
     } else {
@@ -188,21 +182,15 @@ export const getProducts = async (req, res) => {
           productType: product.productType,
           name: product.name,
           price: product.price,
-          details,
           branches: {
             miami: {
-              quantity: product.miami || 0,
             },
             glanklis: {
-              quantity: product.glanklis || 0,
             },
             seyouf: {
-              quantity: product.seyouf || 0,
             },
           },
           totalQuantity,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
         };
       });
     }
@@ -230,7 +218,6 @@ export const getProducts = async (req, res) => {
     res.status(200).json({
       success: true,
       count: formattedProducts.length,
-      summary,
       data: formattedProducts,
     });
   } catch (error) {
