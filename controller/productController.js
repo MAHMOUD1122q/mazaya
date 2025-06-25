@@ -132,61 +132,85 @@ export const getProducts = async (req, res) => {
 
     if (branch) {
       // If specific branch is requested, highlight that branch's quantity
-      formattedProducts = products.map((product) => ({
-        _id: product._id,
-        code: product.code,
-        productType: product.productType,
-        productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
-        category: product.category,
-        name: product.name,
-        price: product.price,
-        // Include relevant details based on product type
-        details:
-          product.productType === "glasses"
-            ? product.glassesDetails
-            : product.lensDetails,
-        selectedBranch: {
-          name: branch.toLowerCase(),
-          nameArabic: getBranchNameArabic(branch.toLowerCase()),
-          quantity: product.branches[branch.toLowerCase()],
-        },
-        totalQuantity: product.totalQuantity,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      }));
+      formattedProducts = products.map((product) => {
+        // Calculate total quantity from individual branches
+        const totalQuantity = (product.miami || 0) + (product.glanklis || 0) + (product.seyouf || 0);
+        
+        // Get details based on product type
+        const details = product.productType === "glasses" 
+          ? {
+              glassShape: product.glassShape,
+              glassMaterial: product.glassMaterial
+            }
+          : {
+              lensPower: product.lensPower,
+              lensType: product.lensType,
+              lenscolor: product.lenscolor
+            };
+
+        return {
+          _id: product._id,
+          code: product.code,
+          productType: product.productType,
+          productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
+          name: product.name,
+          price: product.price,
+          details,
+          selectedBranch: {
+            name: branch.toLowerCase(),
+            nameArabic: getBranchNameArabic(branch.toLowerCase()),
+            quantity: product[branch.toLowerCase()] || 0,
+          },
+          totalQuantity,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        };
+      });
     } else {
       // If no specific branch, show all branch quantities
-      formattedProducts = products.map((product) => ({
-        _id: product._id,
-        code: product.code,
-        productType: product.productType,
-        productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
-        category: product.category,
-        name: product.name,
-        price: product.price,
-        // Include relevant details based on product type
-        details:
-          product.productType === "glasses"
-            ? product.glassesDetails
-            : product.lensDetails,
-        branches: {
-          miami: {
-            quantity: product.branches.miami,
-            nameArabic: "ميامي",
+      formattedProducts = products.map((product) => {
+        // Calculate total quantity from individual branches
+        const totalQuantity = (product.miami || 0) + (product.glanklis || 0) + (product.seyouf || 0);
+        
+        // Get details based on product type
+        const details = product.productType === "glasses" 
+          ? {
+              glassShape: product.glassShape,
+              glassMaterial: product.glassMaterial
+            }
+          : {
+              lensPower: product.lensPower,
+              lensType: product.lensType,
+              lenscolor: product.lenscolor
+            };
+
+        return {
+          _id: product._id,
+          code: product.code,
+          productType: product.productType,
+          productTypeArabic: product.productType === "lens" ? "عدسات" : "نظارات",
+          name: product.name,
+          price: product.price,
+          details,
+          branches: {
+            miami: {
+              quantity: product.miami || 0,
+              nameArabic: "ميامي",
+            },
+            glanklis: {
+              quantity: product.glanklis || 0,
+              nameArabic: "جلانكليس",
+            },
+            seyouf: {
+              quantity: product.seyouf || 0,
+              nameArabic: "السيوف",
+            },
           },
-          glanklis: {
-            quantity: product.branches.glanklis,
-            nameArabic: "جلانكليس",
-          },
-          seyouf: {
-            quantity: product.branches.seyouf,
-            nameArabic: "السيوف",
-          },
-        },
-        totalQuantity: product.totalQuantity,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      }));
+          totalQuantity,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        };
+      });
     }
 
     // Add summary statistics
