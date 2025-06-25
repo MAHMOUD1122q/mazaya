@@ -777,41 +777,37 @@ export const getCliant = async (req, res) => {
 
 export const getReports = async (req, res) => {
   try {
-    const { branch, date } = req.query; // Get query parameters
+    const { branch, date } = req.query;
 
-    // Build the query object
+    // Build query
     const query = {
-      status: { $nin: ["refund", "cancelled"] }, // Exclude orders with status 'refund' or 'cancelled'
+      status: { $nin: ["refund", "cancelled"] },
     };
 
-    // Filter by branch if provided
     if (branch) {
       query.branch = branch;
     }
 
-    // Filter by date if provided (assuming date is in YYYY-MM-DD format)
     if (date) {
       const startDate = new Date(date);
-      // Validate date format
       if (isNaN(startDate.getTime())) {
         return res
           .status(400)
           .json({ message: "Invalid date format. Use YYYY-MM-DD." });
       }
       const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 1); // End of the day
+      endDate.setDate(startDate.getDate() + 1);
+
       query.date = {
         $gte: startDate,
         $lt: endDate,
       };
     }
 
-    // Fetch all orders matching the query
+    // Fetch orders without 'payment' field
     const orders = await Order.find(query)
-      .select(
-        "customer_name  order_code  payment date total_price status"
-      )
-      .lean(); // Convert to plain JavaScript objects for performance
+      .select("customer_name order_code date total_price status payment") // Include 'payment' temporarily
+      .lean();
 
     if (!orders || orders.length === 0) {
       return res
@@ -819,30 +815,33 @@ export const getReports = async (req, res) => {
         .json({ message: "No orders found for the specified criteria." });
     }
 
-    // Calculate total pending amount for each order
+    // Calculate pending and remove 'payment' field
     const ordersWithPending = orders.map((order) => {
-      const paymentDone = order.payment.reduce(
+      const paymentDone = order.payment?.reduce(
         (acc, curr) => acc + (curr?.PaymentDone || 0),
         0
-      );
+      ) || 0;
+
       const pendingAmount = order.total_price - paymentDone;
-      const o = order.total_price <= paymentDone;
+      const isFullyPaid = order.total_price <= paymentDone;
+
+      const { payment, ...orderWithoutPayment } = order;
+
       return {
-        ...order,
-        pending_amount: pendingAmount >= 0 ? pendingAmount : 0, // Ensure no negative pending amounts
-        is_paid: o === true ? "paid" : "not paid", // Indicate if the order is fully paid
+        ...orderWithoutPayment,
+        pending_amount: pendingAmount >= 0 ? pendingAmount : 0,
+        is_paid: isFullyPaid ? "paid" : "not paid",
       };
     });
 
-    // Calculate total pending amount across all orders
     const totalPendingAmount = ordersWithPending.reduce(
       (sum, order) => sum + order.pending_amount,
       0
     );
 
-    // Prepare the response
     const response = {
       total_orders: ordersWithPending.length,
+      total_pending_amount: totalPendingAmount,
       orders: ordersWithPending,
     };
 
