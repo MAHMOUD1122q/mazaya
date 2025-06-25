@@ -753,16 +753,13 @@ export const getCliant = async (req, res) => {
       customer_phone: client.phone,
       customer_code: client.code,
       total_pending_amount: totalPendingAmount,
-      is_paid: isFullyPaid ? "paid" : "not paid",
       last_order: {
+        customer_name : lastOrder.customer_name,
         order_code: lastOrder.order_code,
-        seller_name: lastOrder.seller_name,
-        branch: lastOrder.branch,
         total_price: lastOrder.total_price,
         status: lastOrder.status,
         date: lastOrder.date,
-        order_details: lastOrder.order_details,
-        payment: lastOrder.payment,
+         payment_status: isFullyPaid ? "paid" : "not paid",
       },
     };
 
