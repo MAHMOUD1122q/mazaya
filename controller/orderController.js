@@ -840,7 +840,6 @@ export const getReports = async (req, res) => {
 
     const response = {
       total_orders: ordersWithPending.length,
-      total_pending_amount: totalPendingAmount,
       orders: ordersWithPending,
     };
 
