@@ -157,9 +157,7 @@ export const getProducts = async (req, res) => {
           code: product.code,
           productType: product.productType,
           name: product.name,
-          price: product.price,
           branch: branchQuantity,
-          totalQuantity,
         };
       });
     } else {
@@ -185,7 +183,6 @@ export const getProducts = async (req, res) => {
           code: product.code,
           productType: product.productType,
           name: product.name,
-          price: product.price,
           branches: {
             miami: {
               quantity: product.miami || 0,
