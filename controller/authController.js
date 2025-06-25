@@ -95,6 +95,7 @@ export const login = async (req, res) => {
     res.json({
       message: "Login successful",
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -191,6 +192,7 @@ export const loginLab = async (req, res) => {
     res.json({
       message: "Login successful",
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -207,7 +209,7 @@ export const loginLab = async (req, res) => {
 };
 export const refreshToken = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
+     const token = req.body.refreshToken;
 
     if (!token) {
       return res.status(401).json({ message: "Refresh token not found" });
