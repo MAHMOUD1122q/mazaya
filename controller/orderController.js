@@ -809,7 +809,7 @@ export const getReports = async (req, res) => {
     // Fetch all orders matching the query
     const orders = await Order.find(query)
       .select(
-        "customer_name customer_phone order_code seller_name branch type date total_price order_details payment status reason labNotes"
+        "customer_name  order_code   date total_price status "
       )
       .lean(); // Convert to plain JavaScript objects for performance
 
