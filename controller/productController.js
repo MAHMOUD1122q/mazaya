@@ -231,11 +231,6 @@ export const getProducts = async (req, res) => {
       success: true,
       count: formattedProducts.length,
       summary,
-      filters: {
-        branch: branch || null,
-        search: search || null,
-        productType: productType || null,
-      },
       data: formattedProducts,
     });
   } catch (error) {
