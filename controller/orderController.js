@@ -149,7 +149,7 @@ export const addOrder = async (req, res) => {
       order_details,
       payment,
       notes,
-      status: status || "lab",
+      status: status || "on hold",
     });
 
     const savedOrder = await newOrder.save({ session });
@@ -439,7 +439,7 @@ export const labOrders = async (req, res) => {
     // Get lab orders
     const labOrders = await Order.find({
       date: { $gte: startOfDay, $lt: endOfDay },
-     status: { $in: ["lab", "In progress"] },
+     status: { $in: ["on hold", "In progress"] },
     })
       .sort({ date: -1 })
       .select(
