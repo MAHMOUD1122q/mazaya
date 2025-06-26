@@ -65,7 +65,7 @@ const orderSchema = new mongoose.Schema({
   ],
   status : {
     type : String,
-    default : "lab"
+    default : "on hold"
   },
   reason : String,
   labNotes : String
