@@ -20,7 +20,7 @@ const orderSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['ready', 'In progress', 'Reserved' ,'Delivered', "lab"], // Restrict types of orders
+    enum: ['ready', 'In progress', 'Reserved' ,'Delivered', "on hold"], // Restrict types of orders
   },
   date: {
     type: Date,
