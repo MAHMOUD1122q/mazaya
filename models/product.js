@@ -22,7 +22,6 @@ const productSchema = mongoose.Schema(
     lenscolor: String,
     price: {
       type: Number,
-      required: true,
     },
     quantity: {
       type: Number,
