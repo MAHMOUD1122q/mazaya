@@ -81,7 +81,7 @@ export const addOrder = async (req, res) => {
 
         // Check if enough quantity is available in the specified branch
         const branchKey = branch.toLowerCase();
-        const availableQuantity = product.branches[branchKey];
+  const availableQuantity = product[branchKey];
         if (availableQuantity < quantity) {
           await session.abortTransaction();
           return res.status(400).json({
