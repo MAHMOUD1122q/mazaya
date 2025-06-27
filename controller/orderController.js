@@ -707,7 +707,6 @@ export const getCliant = async (req, res) => {
 
     const isNumber = !isNaN(search);
 
-    // Build the client search query
     const clientQuery = {
       $or: [
         { name: { $regex: search, $options: "i" } },
@@ -727,13 +726,11 @@ export const getCliant = async (req, res) => {
       });
     }
 
-    // Order search filter for this client
     const orderFilter = {
       customer_phone: client.phone,
       status: { $nin: ["cancelled", "refund"] },
     };
 
-    // Fetch all valid orders
     const allOrders = await Order.find(orderFilter).lean();
 
     if (allOrders.length === 0) {
@@ -742,10 +739,27 @@ export const getCliant = async (req, res) => {
       });
     }
 
-    // Get the latest order
-    const lastOrder = allOrders.sort(
+    // Sort orders by date descending
+    const sortedOrders = allOrders.sort(
       (a, b) => new Date(b.date) - new Date(a.date)
-    )[0];
+    );
+
+    // Take the last 3 orders
+    const lastThreeOrders = sortedOrders.slice(0, 3).map(order => {
+      const paid = order.payment.reduce(
+        (acc, p) => acc + (p?.PaymentDone || 0),
+        0
+      );
+
+      return {
+        customer_name: order.customer_name,
+        order_code: order.order_code,
+        total_price: order.total_price,
+        status: order.status,
+        date: order.date,
+        payment_status: paid >= order.total_price ? "paid" : "not paid",
+      };
+    });
 
     // Calculate total pending amount
     const totalPendingAmount = allOrders.reduce((sum, order) => {
@@ -756,27 +770,12 @@ export const getCliant = async (req, res) => {
       return sum + (order.total_price - paid);
     }, 0);
 
-    const lastOrderPaid = lastOrder.payment.reduce(
-      (acc, p) => acc + (p?.PaymentDone || 0),
-      0
-    );
-
-    const isFullyPaid = lastOrderPaid >= lastOrder.total_price;
-
-    // Final response
     const response = {
       customer_name: client.name,
       customer_phone: client.phone,
       customer_code: client.code,
       total_pending_amount: totalPendingAmount,
-      last_order: {
-        customer_name : lastOrder.customer_name,
-        order_code: lastOrder.order_code,
-        total_price: lastOrder.total_price,
-        status: lastOrder.status,
-        date: lastOrder.date,
-         payment_status: isFullyPaid ? "paid" : "not paid",
-      },
+      last_orders: lastThreeOrders,
     };
 
     return res.status(200).json(response);
