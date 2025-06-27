@@ -87,7 +87,7 @@ export const addProduct = async (req, res) => {
       error: error.message,
     });
   }
-
+}
 export const getProducts = async (req, res) => {
   try {
     const { branch, search, productType } = req.query;
