@@ -39,10 +39,10 @@ export const addProduct = async (req, res) => {
     } = req.body;
 
     // Basic validation
-    if (!productType || !name || !price) {
+    if (!productType || !name) {
       return res.status(400).json({
         success: false,
-        message: "الرجاء إدخال جميع الحقول المطلوبة (نوع المنتج، الاسم، السعر)",
+        message: "الرجاء إدخال جميع الحقول المطلوبة (نوع المنتج، الاسم)",
       });
     }
 
@@ -53,6 +53,10 @@ export const addProduct = async (req, res) => {
       });
     }
 
+    const parsedPrice = price !== undefined && price !== null && price !== ''
+      ? parseFloat(price)
+      : null;
+
     const newProduct = new Product({
       productType,
       name,
@@ -61,7 +65,7 @@ export const addProduct = async (req, res) => {
       lensPower: lensPower || null,
       lensType: lensType || null,
       lensColor: lensColor || null,
-      price: parseFloat(price),
+      price: parsedPrice,
       quantity: quantity || 0,
       miami: miami || 0,
       glanklis: glanklis || 0,
@@ -83,8 +87,6 @@ export const addProduct = async (req, res) => {
       error: error.message,
     });
   }
-};
-
 
 export const getProducts = async (req, res) => {
   try {
