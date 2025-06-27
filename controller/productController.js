@@ -77,7 +77,6 @@ export const addProduct = async (req, res) => {
     res.status(201).json({
       success: true,
       message: `تم إضافة المنتج بنجاح - الكود: ${savedProduct.code}`,
-      product: savedProduct,
     });
   } catch (error) {
     console.error("Error adding product:", error);
