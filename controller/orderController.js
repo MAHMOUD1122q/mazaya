@@ -276,30 +276,47 @@ export const getOrderByCode = async (req, res) => {
       return res.status(404).json("No order found with this code");
     }
 
-    // Fetch product details for each item_code in order_details
+    // Fetch product details and remove specific fields
     const detailedOrderItems = await Promise.all(
       order.order_details.map(async (item) => {
-        const product = await Product.findOne({ code: item.item_code }).select(
-          "-__v -branches -_id -totalQuantity"
-        );
+        let product = await Product.findOne({ code: item.item_code }).lean();
+
+        if (product) {
+          const {
+            quantity,
+            miami,
+            glanklis,
+            seyouf,
+            createdAt,
+            updatedAt,
+            __v,
+            branches,
+            _id,
+            totalQuantity,
+            ...filteredProduct
+          } = product;
+
+          return {
+            ...item.toObject(),
+            product: filteredProduct,
+          };
+        }
+
         return {
           ...item.toObject(),
-          product: product || null,
+          product: null,
         };
       })
     );
 
-    // Calculate total payments done
     const totalPaid = order.payment.reduce(
       (sum, p) => sum + (p.PaymentDone || 0),
       0
     );
     const pendingAmount = order.total_price - totalPaid;
 
-    // Determine payment status
     const payment_status = pendingAmount > 0 ? "not completed" : "completed";
 
-    // Add pending amount to each payment record
     const paymentWithPending = order.payment.map((p) => ({
       ...p.toObject(),
       pending: pendingAmount,
@@ -309,7 +326,7 @@ export const getOrderByCode = async (req, res) => {
       ...order.toObject(),
       order_details: detailedOrderItems,
       payment: paymentWithPending,
-      payment_status, // <- here
+      payment_status,
     };
 
     return res.status(200).json(fullOrder);
@@ -318,7 +335,6 @@ export const getOrderByCode = async (req, res) => {
     return res.status(500).json("Internal server error");
   }
 };
-
 export const addPaymentToOrder = async (req, res) => {
   const { code } = req.params;
   const {
