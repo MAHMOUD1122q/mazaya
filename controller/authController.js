@@ -237,6 +237,8 @@ export const refreshToken = async (req, res) => {
       user = await User.findById(id);
     } else if (type === "lab") {
       user = await Lab.findById(id); // Make sure you import Lab model too
+    }else if (type === "admin") {
+      user = await Admin.findById(id);
     }
 
     if (!user) {
