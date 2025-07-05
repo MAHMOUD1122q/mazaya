@@ -26,3 +26,11 @@ export const isNotAdmin = (req, res, next) => {
     }
     next();
   };
+  // middlewares/authorizeRole.js
+export const authorizeRole = (role) => (req, res, next) => {
+  // ‹auth› middleware should already have put the JWT payload on req.user
+  if (req.user?.type !== role) {
+    return res.status(403).json({ message: "Forbidden: admin only" });
+  }
+  next();
+};
