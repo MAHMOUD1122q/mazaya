@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import RefreshToken from "../models/token.js";
 import User from "../models/user.js";
 import Lab from "../models/lab.js";
+import Admin from "../models/admin.js";
 
 const ACCESS_SECRET = process.env.ACCESS_SECRET || "access_secret_key";
 const REFRESH_SECRET = process.env.REFRESH_SECRET || "refresh_secret_key";
@@ -286,5 +287,93 @@ export const logout = async (req, res) => {
   } catch (err) {
     console.error("Logout error:", err);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const loginAdmin = async (req, res) => {
+  try {
+    const { phone, name, password } = req.body;
+
+    /* ---------- 1. Basic validation ---------- */
+    if (!phone || !name || !password) {
+      return res
+        .status(400)
+        .json({ message: "Phone, name, and password are required" });
+    }
+
+    /* ---------- 2. Look‑up by phone (unique) ---------- */
+    const user = await Admin.findOne({ phone });
+
+    if (!user) {
+      // constant‑time delay to mitigate user‑enumeration
+      await bcrypt.hash("dummy", 10);
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    /* ---------- 3. Verify static fields (name) ---------- */
+    if (user.name !== name) {
+      await bcrypt.hash("dummy", 10);
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    /* ---------- 4. Verify password ---------- */
+    let isMatch = false;
+
+    // Check if password is likely hashed
+    const isLikelyHashed =
+      typeof user.password === "string" &&
+      (user.password.startsWith("$2b$") || user.password.startsWith("$2a$"));
+
+    if (isLikelyHashed) {
+      // Compare using bcrypt
+      isMatch = await user.comparePassword(password);
+    } else {
+      // Compare as plain text
+      isMatch = user.password === password;
+
+      if (isMatch) {
+        // Hash the plaintext password and update in DB
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await user.updateOne({ password: hashedPassword });
+      }
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    /* ---------- 5. JWT generation ---------- */
+    const payload = { id: user._id, name: user.name, type: "admin" };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    /* ---------- 6. Persist refresh token & last login ---------- */
+    await RefreshToken.findOneAndUpdate(
+      { phone: user.phone },
+      { token: refreshToken },
+      { upsert: true, new: true }
+    );
+    /* ---------- 7. Set refresh‑token cookie ---------- */
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    /* ---------- 8. Success response ---------- */
+    res.json({
+      message: "Login successful",
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        role: "admin",
+      },
+    });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
