@@ -83,7 +83,7 @@ const processCSVData = async (csvData) => {
                 miami: parseInt(cleanRow['كمية فرع ميامي']) || 0,
                 glanklis: parseInt(cleanRow['كمية فرع جانكليس']) || 0,
                 seyouf: parseInt(cleanRow['كمية فرع السيوف']) || 0,
-                price: price,
+                price: price || null,
               };
 
               // Map fields based on product type
