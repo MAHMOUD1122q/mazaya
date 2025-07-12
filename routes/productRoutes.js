@@ -5,7 +5,7 @@ import { authenticate } from "../middlewares/auth.js"
 import Papa from "papaparse"
 import multer from "multer";
 const router = express.Router()
-
+import Product from "../models/product.js";
 // Configure multer for file upload
 const storage = multer.memoryStorage();
 const upload = multer({
