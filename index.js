@@ -24,7 +24,7 @@ app.use(express.static(path.join(__dirname, "public"))); // Serve robots.txt fro
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
-app.use(limiter);
+// app.use(limiter);
 app.use(helmet()); // Enables all Helmet security features with default settings
 
 app.use(cors({ origin: true, credentials: true }));
