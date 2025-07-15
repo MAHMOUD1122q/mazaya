@@ -306,43 +306,43 @@ export const loginAdmin = async (req, res) => {
     /* ---------- 2. Look‑up by phone (unique) ---------- */
     const user = await Admin.findOne({ phone });
 
-    if (!user) {
-      // constant‑time delay to mitigate user‑enumeration
-      await bcrypt.hash("dummy", 10);
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    // if (!user) {
+    //   // constant‑time delay to mitigate user‑enumeration
+    //   await bcrypt.hash("dummy", 10);
+    //   return res.status(401).json({ message: "Invalid credentials" });
+    // }
 
     /* ---------- 3. Verify static fields (name) ---------- */
-    if (user.name !== name) {
-      await bcrypt.hash("dummy", 10);
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    // if (user.name !== name) {
+    //   await bcrypt.hash("dummy", 10);
+    //   return res.status(401).json({ message: "Invalid credentials" });
+    // }
 
     /* ---------- 4. Verify password ---------- */
-    let isMatch = false;
+    // let isMatch = false;
 
-    // Check if password is likely hashed
-    const isLikelyHashed =
-      typeof user.password === "string" &&
-      (user.password.startsWith("$2b$") || user.password.startsWith("$2a$"));
+    // // Check if password is likely hashed
+    // const isLikelyHashed =
+    //   typeof user.password === "string" &&
+    //   (user.password.startsWith("$2b$") || user.password.startsWith("$2a$"));
 
-    if (isLikelyHashed) {
-      // Compare using bcrypt
-      isMatch = await user.comparePassword(password);
-    } else {
-      // Compare as plain text
-      isMatch = user.password === password;
+    // if (isLikelyHashed) {
+    //   // Compare using bcrypt
+    //   isMatch = await user.comparePassword(password);
+    // } else {
+    //   // Compare as plain text
+    //   isMatch = user.password === password;
 
-      if (isMatch) {
-        // Hash the plaintext password and update in DB
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await user.updateOne({ password: hashedPassword });
-      }
-    }
+    //   if (isMatch) {
+    //     // Hash the plaintext password and update in DB
+    //     const hashedPassword = await bcrypt.hash(password, 10);
+    //     await user.updateOne({ password: hashedPassword });
+    //   }
+    // }
 
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    // if (!isMatch) {
+    //   return res.status(401).json({ message: "Invalid credentials" });
+    // }
     /* ---------- 5. JWT generation ---------- */
     const payload = { id: user._id, name: user.name, type: "admin" };
     const accessToken = generateAccessToken(payload);
