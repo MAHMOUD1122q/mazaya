@@ -29,30 +29,30 @@ app.use(helmet()); // Enables all Helmet security features with default settings
 
 app.use(cors({ origin: true, credentials: true }));
 
-const PORT = process.env.PORT || 3000;
+// const PORT = process.env.PORT || 3000;
 
-app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/company", companyRouter);
-app.use("/api/v1/notification", notificationRouter);
-app.use("/api/v1/order", orderRouter);
-app.use("/api/v1/product", productRouter);
-app.use("/api/v1/user", userRouter);
+// app.use("/api/v1/auth", authRouter);
+// app.use("/api/v1/company", companyRouter);
+// app.use("/api/v1/notification", notificationRouter);
+// app.use("/api/v1/order", orderRouter);
+// app.use("/api/v1/product", productRouter);
+// app.use("/api/v1/user", userRouter);
 
 
-app.get("/", (req, res) => {
-res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  res.send("Hello"); 
-});
+// app.get("/", (req, res) => {
+// res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+//   res.send("Hello"); 
+// });
 
-try {
-  mongoose
-    .connect(process.env.DB_SECRET)
-    .then(console.log("connect to Database"))
-    .then(
-      app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-      })
-    );
-} catch (e) {
-  console.log(e);
-}
+// try {
+//   mongoose
+//     .connect(process.env.DB_SECRET)
+//     .then(console.log("connect to Database"))
+//     .then(
+//       app.listen(PORT, () => {
+//         console.log(`Server running on http://localhost:${PORT}`);
+//       })
+//     );
+// } catch (e) {
+//   console.log(e);
+// }
