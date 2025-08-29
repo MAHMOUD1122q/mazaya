@@ -1,36 +1,22 @@
+import Client from "../models/Client";
 import jwt from "jsonwebtoken";
+// const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+export const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ message: "No token provided" });
 
-const ACCESS_SECRET = process.env.ACCESS_SECRET || "access_secret_key";
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "supersecret");
+    const client = await Client.findById(decoded.id);
 
-export const authenticate = (req, res, next) => {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
+    if (!client || client.sessionToken !== token) {
+      return res.status(401).json({ message: "Invalid or expired session" });
     }
 
-    jwt.verify(token, ACCESS_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(401).json({ message: "Invalid token" });
-        }
-
-        req.user = decoded.user; // Attach user data to request
-        next(); // Proceed to the next middleware/route
-    });
-};
-
-export const isNotAdmin = (req, res, next) => {
-    const roles = req.user?.user?.role;
-    if (!Array.isArray(roles) || !roles.includes("admin")) {
-      return res.status(403).json({ message: "Access denied. Admins only!" });
-    }
+    req.client = client;
     next();
-  };
-  // middlewares/authorizeRole.js
-export const authorizeRole = (role) => (req, res, next) => {
-  // ‹auth› middleware should already have put the JWT payload on req.user
-  if (req.user?.type !== role) {
-    return res.status(403).json({ message: "Forbidden: admin only" });
+  } catch (err) {
+    res.status(401).json({ message: "Unauthorized" });
   }
-  next();
 };

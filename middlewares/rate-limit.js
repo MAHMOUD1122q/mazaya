@@ -1,24 +1,12 @@
-
 import rateLimit from "express-rate-limit";
 
- export  const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minutes
-    max: 10, // Limit each IP to 100 requests per windowMs
-    message: { error: "Too many requests, please try again later." },
-    headers: true,
-  });
-  
-  // Rate limiting middleware
- export const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Max 5 requests per windowMs
-    message: { error: "Too many requests, please try again later." },
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-  // Using express-rate-limit
- export const otpRequestLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 3, // Max 3 requests per windowMs
-    message: { error: "Too many requests, please try again later." },
-  });
+// limit login/otp attempts: 5 requests per 5 minutes per IP
+export const loginLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, 
+  max: 5, 
+  message: {
+    message: "Too many login attempts, please try again later",
+  },
+  standardHeaders: true, // send RateLimit-* headers
+  legacyHeaders: false,
+});
