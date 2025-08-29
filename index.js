@@ -9,7 +9,9 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: false }));
 
 app.use("/api/v1/client" ,ClientRoutes)
-
+app.get("/", (req, res) => {
+  res.send("Hello"); 
+});
 
 const PORT = 4000
 
@@ -25,3 +27,4 @@ try {
 } catch (e) {
   console.log(e);
 }
+
